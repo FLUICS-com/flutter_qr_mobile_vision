@@ -3,9 +3,11 @@ package com.github.rmtmckenzie.qrmobilevision;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 
 import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetectorOptions;
@@ -146,6 +148,7 @@ public class QrMobileVisionPlugin implements MethodCallHandler, QrReaderCallback
         lastHeartbeatTimeout = null;
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @Override
     public void onMethodCall(MethodCall methodCall, Result result) {
         switch (methodCall.method) {
@@ -194,6 +197,13 @@ public class QrMobileVisionPlugin implements MethodCallHandler, QrReaderCallback
             case "stop": {
                 if (readingInstance != null && !waitingForPermissionResult) {
                     stopReader();
+                }
+                result.success(null);
+                break;
+            }
+            case "switchCamera": {
+                if (readingInstance != null && !waitingForPermissionResult) {
+                    readingInstance.reader.switchCamera();
                 }
                 result.success(null);
                 break;

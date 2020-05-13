@@ -7,8 +7,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
 import android.os.Build;
-import android.util.Log;
-
+import androidx.annotation.RequiresApi;
 import com.google.android.gms.vision.CameraSource;
 import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetectorOptions;
 
@@ -22,19 +21,13 @@ class QrReader {
     private Heartbeat heartbeat;
     private CameraSource camera;
 
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     QrReader(int width, int height, Activity context, FirebaseVisionBarcodeDetectorOptions options,
              final QRReaderStartedCallback startedCallback, final QrReaderCallbacks communicator,
              final SurfaceTexture texture) {
         this.context = context;
         this.startedCallback = startedCallback;
-
-        if (android.os.Build.VERSION.SDK_INT >= 21) {
-            Log.i(TAG, "Using new camera API.");
-            qrCamera = new QrCameraC2(width, height, texture, context, new QrDetector(communicator, options));
-        } else {
-            Log.i(TAG, "Using old camera API.");
-            qrCamera = new QrCameraC1(width, height, texture, context, new QrDetector(communicator, options));
-        }
+        qrCamera = new QrCameraC2(width, height, texture, context, new QrDetector(communicator, options));
     }
 
     void start(final int heartBeatTimeout) throws IOException, NoPermissionException, Exception {
@@ -107,6 +100,10 @@ class QrReader {
 
         int res = context.checkCallingOrSelfPermission(permissions[0]);
         return res == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public void switchCamera() {
+        qrCamera.switchCamera();
     }
 
     interface QRReaderStartedCallback {

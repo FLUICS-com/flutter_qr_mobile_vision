@@ -35,6 +35,7 @@ import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_AUTO;
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO;
 import static android.hardware.camera2.CameraMetadata.LENS_FACING_BACK;
+import static android.hardware.camera2.CameraMetadata.LENS_FACING_FRONT;
 
 /**
  * Implements QrCamera using Camera2 API
@@ -66,6 +67,7 @@ class QrCameraC2 implements QrCamera {
     private int sensorOrientation;
     private CameraDevice cameraDevice;
     private CameraCharacteristics cameraCharacteristics;
+    private Integer cameraConfig = LENS_FACING_BACK;
 
     QrCameraC2(int width, int height, SurfaceTexture texture, Context context, QrDetector detector) {
         this.targetWidth = width;
@@ -90,6 +92,29 @@ class QrCameraC2 implements QrCamera {
         // ignore sensor orientation of devices with 'reverse landscape' orientation of sensor
         // as camera2 api seems to already rotate the output.
         return sensorOrientation == 270 ? 90 : sensorOrientation;
+    }
+
+    @Override
+    public void switchCamera() {
+        if (cameraConfig == LENS_FACING_BACK) {
+            cameraConfig = LENS_FACING_FRONT;
+            cameraDevice.close();
+            try {
+                start();
+            } catch (QrReader.Exception e) {
+                e.printStackTrace();
+            }
+            System.out.println("FRONT CAMERA");
+        } else if (cameraConfig == LENS_FACING_FRONT) {
+            cameraConfig = LENS_FACING_BACK;
+            cameraDevice.close();
+            try {
+                start();
+            } catch (QrReader.Exception e) {
+                e.printStackTrace();
+            }
+            System.out.println("BACK CAMERA");
+        }
     }
 
     private int getFirebaseOrientation() {
@@ -133,7 +158,7 @@ class QrCameraC2 implements QrCamera {
             for (String id : cameraIdList) {
                 CameraCharacteristics cameraCharacteristics = manager.getCameraCharacteristics(id);
                 Integer integer = cameraCharacteristics.get(CameraCharacteristics.LENS_FACING);
-                if (integer != null && integer == LENS_FACING_BACK) {
+                if (integer != null && integer.equals(cameraConfig)) {
                     cameraId = id;
                     break;
                 }

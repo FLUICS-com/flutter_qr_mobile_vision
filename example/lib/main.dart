@@ -28,6 +28,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String qr;
   bool camState = false;
+  GlobalKey<QrCameraState> key = GlobalKey<QrCameraState>();
 
   @override
   initState() {
@@ -43,35 +44,41 @@ class _MyAppState extends State<MyApp> {
       body: new Center(
         child: new Column(
           crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            new Expanded(
-                child: camState
-                    ? new Center(
-                        child: new SizedBox(
-                          width: 300.0,
-                          height: 600.0,
-                          child: new QrCamera(
-                            onError: (context, error) => Text(
-                                  error.toString(),
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                            qrCodeCallback: (code) {
-                              setState(() {
-                                qr = code;
-                              });
-                            },
-                            child: new Container(
-                              decoration: new BoxDecoration(
-                                color: Colors.transparent,
-                                border: Border.all(color: Colors.orange, width: 10.0, style: BorderStyle.solid),
-                              ),
-                            ),
-                          ),
+            camState
+                ? new SizedBox(
+                  width: 300.0,
+                  height: 200.0,
+                  child: new QrCamera(
+                    key: key,
+                    scaleResolution: 2,
+                    onError: (context, error) => Text(
+                          error.toString(),
+                          style: TextStyle(color: Colors.red),
                         ),
-                      )
-                    : new Center(child: new Text("Camera inactive"))),
-            new Text("QRCODE: $qr"),
+                    qrCodeCallback: (code) {
+                      setState(() {
+                        qr = code;
+                      });
+                    },
+                    child: new Container(
+                      decoration: new BoxDecoration(
+                        color: Colors.transparent,
+                        border: Border.all(color: Colors.orange, width: 10.0, style: BorderStyle.solid),
+                      ),
+                    ),
+                  ),
+                )
+                : new Center(child: new Text("Camera inactive")),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: new Text("QRCODE: $qr"),
+            ),
+            FlatButton(child: Text('Change camera'),
+            onPressed: () {
+              key.currentState.switchCamera();
+            },
+            )
           ],
         ),
       ),

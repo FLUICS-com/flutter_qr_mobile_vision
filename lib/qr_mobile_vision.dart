@@ -43,9 +43,12 @@ class QrMobileVision {
   static Future<PreviewDetails> start({
     @required int width,
     @required int height,
+    int scaleResolution,
     @required QRCodeHandler qrCodeHandler,
     List<BarcodeFormats> formats = _defaultBarcodeFormats,
   }) async {
+    width = width * scaleResolution;
+    height = height * scaleResolution;
     final _formats = formats ?? _defaultBarcodeFormats;
     assert(_formats.length > 0);
 
@@ -76,6 +79,10 @@ class QrMobileVision {
   static Future stop() {
     channelReader.setQrCodeHandler(null);
     return _channel.invokeMethod('stop').catchError(print);
+  }
+
+  static Future switchCamera() {
+    return _channel.invokeMethod('switchCamera');
   }
 
   static Future heartbeat() {
