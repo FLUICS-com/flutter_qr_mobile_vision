@@ -7,7 +7,9 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
 import android.os.Build;
+
 import androidx.annotation.RequiresApi;
+
 import com.google.android.gms.vision.CameraSource;
 import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetectorOptions;
 
@@ -106,7 +108,16 @@ class QrReader {
         qrCamera.switchCamera();
     }
 
+    public void toggleTorch() {
+        qrCamera.toggleTorch();
+    }
+
+    public void toggleZoom() {
+        qrCamera.toggleZoom();
+    }
+
     interface QRReaderStartedCallback {
+
         void started();
 
         void startingFailed(Throwable t);

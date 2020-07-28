@@ -85,6 +85,14 @@ class QrMobileVision {
     return _channel.invokeMethod('switchCamera');
   }
 
+  static Future toggleTorch() {
+    return _channel.invokeMethod('toggleTorch');
+  }
+
+  static Future toggleZoom() {
+    return _channel.invokeMethod('toggleZoom');
+  }
+
   static Future heartbeat() {
     return _channel.invokeMethod('heartbeat').catchError(print);
   }

@@ -61,10 +61,6 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  void switchCamera() {
-    QrMobileVision.switchCamera();
-  }
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
