@@ -10,7 +10,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 
-import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetectorOptions;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -169,10 +168,11 @@ public class QrMobileVisionPlugin implements MethodCallHandler, QrReaderCallback
                         break;
                     }
 
-                    FirebaseVisionBarcodeDetectorOptions options = BarcodeFormats.optionsFromStringList(formatStrings);
+                    int barcodeFormats = BarcodeFormats.intFromStringList(formatStrings);
 
                     TextureRegistry.SurfaceTextureEntry textureEntry = textures.createSurfaceTexture();
-                    QrReader reader = new QrReader(targetWidth, targetHeight, activity, options,
+
+                    QrReader reader = new QrReader(targetWidth, targetHeight, activity, barcodeFormats,
                         this, this, textureEntry.surfaceTexture());
 
                     readingInstance = new ReadingInstance(reader, textureEntry, result);
