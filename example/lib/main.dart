@@ -1,7 +1,11 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:qr_mobile_vision/qr_camera.dart';
 import 'package:qr_mobile_vision/qr_mobile_vision.dart';
+import 'package:qr_mobile_vision/barcode.dart';
 
 void main() {
   debugPaintSizeEnabled = false;
@@ -28,10 +32,10 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String qr;
   bool camState = false;
-  int counter = 0;
   Offset position;
   Set<String> listQr = Set();
   OverlayEntry overlayEntry;
+  List<Barcode> barcodes;
 
   @override
   initState() {
@@ -75,15 +79,22 @@ class _MyAppState extends State<MyApp> {
                 },
               ),
               FlatButton(
+                child: Text('Clear'),
+                onPressed: () {
+                  barcodes.clear();
+                },
+              ),
+              FlatButton(
                 child: Text('Zoom'),
                 onPressed: () {
                   QrMobileVision.toggleZoom();
+                  overlayEntry.markNeedsBuild();
                 },
               ),
               FlatButton(
                 child: Text('Position'),
                 onPressed: () {
-                  position = Offset(30, 30);
+                  position = Offset(0, 0);
                   overlayEntry.markNeedsBuild();
                 },
               ),
@@ -127,28 +138,31 @@ class _MyAppState extends State<MyApp> {
       onPanStart: (details) {
         _onPanStart(context, details);
       },
-      child: SizedBox(
-        width: 300,
-        height: 200,
-        child: Material(
-          elevation: 7,
-          child: QrCamera(
-            scaleResolution: 2,
-            onError: (context, error) => Text(
-              error.toString(),
-              style: TextStyle(color: Colors.red),
+      child: Stack(
+        children: <Widget>[
+          SizedBox(
+            width: MediaQuery.of(context).size.width,
+            height: MediaQuery.of(context).size.height / 3,
+            child: Material(
+              elevation: 7,
+              child: QrCamera(
+                customPainter: _buildCustomPainter(),
+                fit: BoxFit.cover,
+                scaleResolution: 2,
+                onError: (context, error) => Text(
+                  error.toString(),
+                  style: TextStyle(color: Colors.red),
+                ),
+                qrCodeCallback: (List<Barcode> code) {
+                  setState(() {
+                    barcodes = code;
+                  });
+                  overlayEntry.markNeedsBuild();
+                },
+              ),
             ),
-            qrCodeCallback: (code) {
-              if (!listQr.contains(code)) {
-                setState(() {
-                  listQr.add(code);
-                  qr = code;
-                  counter++;
-                });
-              }
-            },
           ),
-        ),
+        ],
       ),
     );
   }
@@ -169,5 +183,61 @@ class _MyAppState extends State<MyApp> {
         details.globalPosition.dx - renderObject.size.height / 6,
         details.globalPosition.dy - renderObject.size.width / 6));
     overlayEntry.markNeedsBuild();
+  }
+
+  List<Widget> _buildCustomPainter() {
+    if ((barcodes?.isNotEmpty ?? false) && Platform.isAndroid) {
+      return barcodes
+          .map(
+            (barcode) => CustomPaint(
+              foregroundPainter: barcode == null
+                  ? null
+                  : BarcodePainter(
+                      barcode: barcode,
+                      listQr: listQr,
+                    ),
+            ),
+          )
+          .toList();
+    }
+    return null;
+  }
+}
+
+class BarcodePainter extends CustomPainter {
+  BarcodePainter({this.barcode, this.detectorImageSize, this.listQr});
+
+  final Size detectorImageSize;
+  final Barcode barcode;
+  final Set<String> listQr;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    Rect scaleRect(Barcode barcode) {
+      return Rect.fromLTRB(
+        barcode.boundingBox.left,
+        barcode.boundingBox.top,
+        barcode.boundingBox.right,
+        barcode.boundingBox.bottom,
+      );
+    }
+
+    final Paint paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.0;
+
+    paint.color =
+        listQr.contains(barcode.rawValue) ? Colors.green : Colors.white;
+    if (!listQr.contains(barcode.rawValue)) {
+      HapticFeedback.mediumImpact();
+      listQr.add(barcode.rawValue);
+    }
+
+    canvas.drawRect(scaleRect(barcode), paint);
+  }
+
+  @override
+  bool shouldRepaint(BarcodePainter oldDelegate) {
+    return true;
   }
 }

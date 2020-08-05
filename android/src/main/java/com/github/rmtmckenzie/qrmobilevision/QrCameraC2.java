@@ -3,6 +3,7 @@ package com.github.rmtmckenzie.qrmobilevision;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -19,8 +20,10 @@ import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.Surface;
+import android.view.WindowManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import com.google.android.gms.vision.Frame;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -151,6 +154,33 @@ class QrCameraC2 implements QrCamera {
 
     }
 
+
+    private int getFrameOrientation() {
+        WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        int deviceRotation = windowManager.getDefaultDisplay().getRotation();
+        int rotationCompensation = (ORIENTATIONS.get(deviceRotation) + sensorOrientation + 270) % 360;
+
+        int result;
+        switch (rotationCompensation) {
+            case 0:
+                result = Frame.ROTATION_0;
+                break;
+            case 90:
+                result = Frame.ROTATION_90;
+                break;
+            case 180:
+                result = Frame.ROTATION_180;
+                break;
+            case 270:
+                result = Frame.ROTATION_270;
+                break;
+            default:
+                result = Frame.ROTATION_0;
+                Log.e(TAG, "Bad rotation value: " + rotationCompensation);
+        }
+        return result;
+    }
+
    
     @Override
     public void start() throws QrReader.Exception {
@@ -253,8 +283,7 @@ class QrCameraC2 implements QrCamera {
             public void onImageAvailable(ImageReader reader) {
                 try (Image image = reader.acquireLatestImage()) {
                     if (image == null) return;
-                    detector.detect(image);
-
+                    detector.detect(image, getFrameOrientation());
                 } catch (Throwable t) {
                     t.printStackTrace();
                 }

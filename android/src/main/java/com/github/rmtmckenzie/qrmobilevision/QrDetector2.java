@@ -3,6 +3,7 @@ package com.github.rmtmckenzie.qrmobilevision;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.ImageFormat;
+import android.graphics.Point;
 import android.media.Image;
 import android.os.AsyncTask;
 import android.util.Log;
@@ -15,7 +16,11 @@ import com.google.android.gms.vision.barcode.BarcodeDetector;
 
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -32,12 +37,13 @@ class QrDetector2 {
     private final Lock nextImageLock = new ReentrantLock();
     private final AtomicBoolean isScheduled = new AtomicBoolean(false);
     private final AtomicBoolean needsScheduling = new AtomicBoolean(false);
+    private int orientation;
 
 
     private final AtomicBoolean nextImageSet = new AtomicBoolean(false);
 
-    private QrImage imageToCheck = new QrImage();
-    private QrImage nextImage = new QrImage();
+    QrImage imageToCheck = new QrImage();
+    QrImage nextImage = new QrImage();
 
     QrDetector2(QrReaderCallbacks communicator, Context context, int formats) {
         Log.i(TAG, "Making detector2 for formats: " + formats);
@@ -54,7 +60,8 @@ class QrDetector2 {
         }
     }
 
-    void detect(Image image) {
+    void detect(Image image, int frameOrientation) {
+        orientation = frameOrientation;
         needsScheduling.set(true);
 
         if (imageToCheckLock.tryLock()) {
@@ -200,6 +207,7 @@ class QrDetector2 {
             }
 
             Frame.Builder builder = new Frame.Builder().setImageData(imageBuffer, width, height, ImageFormat.NV21);
+            builder.setRotation(qrDetector.orientation);
             return qrDetector.detector.detect(builder.build());
         }
 
@@ -209,9 +217,30 @@ class QrDetector2 {
             if (qrDetector == null) return;
 
             if (detectedItems != null) {
+                List<Map<String, Object>> barcodeList = new ArrayList<>();
+
                 for (int i = 0; i < detectedItems.size(); ++i) {
-                    qrDetector.communicator.qrRead(detectedItems.valueAt(i).rawValue);
+                    Barcode barcode = detectedItems.valueAt(i);
+                    Map<String, Object> barcodeMap = new HashMap<>();
+                    List<double[]> points = new ArrayList<>();
+
+                    barcodeMap.put("rawValue", barcode.rawValue);
+                    if (barcode.getBoundingBox() != null) {
+                        barcodeMap.put("left", (double) barcode.getBoundingBox().left);
+                        barcodeMap.put("top", (double) barcode.getBoundingBox().top);
+                        barcodeMap.put("width", (double) barcode.getBoundingBox().width());
+                        barcodeMap.put("height", (double) barcode.getBoundingBox().height());
+                    }
+
+                    if (barcode.cornerPoints != null) {
+                        for (Point point : barcode.cornerPoints) {
+                            points.add(new double[]{(double) point.x, (double) point.y});
+                        }
+                    }
+                    barcodeMap.put("points", points);
+                    barcodeList.add(barcodeMap);
                 }
+                qrDetector.communicator.qrRead(barcodeList);
             }
 
             // if needed keep processing.

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_mobile_vision/barcode.dart';
 
 class PreviewDetails {
   num width;
@@ -10,7 +11,11 @@ class PreviewDetails {
   int textureId;
 
   PreviewDetails(
-      this.width, this.height, this.sensorOrientation, this.textureId);
+    this.width,
+    this.height,
+    this.sensorOrientation,
+    this.textureId,
+  );
 }
 
 enum BarcodeFormats {
@@ -104,7 +109,7 @@ class QrMobileVision {
 
 enum FrameRotation { none, ninetyCC, oneeighty, twoseventyCC }
 
-typedef void QRCodeHandler(String qr);
+typedef void QRCodeHandler(List<Barcode> qr);
 
 class QrChannelReader {
   QrChannelReader(this.channel) {
@@ -112,8 +117,11 @@ class QrChannelReader {
       switch (call.method) {
         case 'qrRead':
           if (qrCodeHandler != null) {
-            assert(call.arguments is String);
-            qrCodeHandler(call.arguments);
+            assert(call.arguments is List);
+            final List<Barcode> barcodes = (call.arguments as List)
+                .map((barcode) => Barcode(barcode))
+                .toList();
+            qrCodeHandler(barcodes);
           }
           break;
         default:
