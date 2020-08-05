@@ -37,7 +37,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.google.mlkit:barcode-scanning:16.0.2'
+   implementation 'com.google.android.gms:play-services-mlkit-barcode-scanning:16.1.1'
 }
 
 

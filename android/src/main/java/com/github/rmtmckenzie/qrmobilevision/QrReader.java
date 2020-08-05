@@ -4,9 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
-import android.util.Log;
 import com.google.android.gms.vision.CameraSource;
-
 import java.io.IOException;
 
 class QrReader {
