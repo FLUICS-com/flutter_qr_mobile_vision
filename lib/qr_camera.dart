@@ -217,9 +217,6 @@ class Preview extends StatelessWidget {
             break;
         }
 
-        print(
-            "Native orientation: $nativeRotation, sensorOrientation: $sensorOrientation");
-
         int rotationCompensation =
             ((nativeRotation - sensorOrientation + 450) % 360) ~/ 90;
 
