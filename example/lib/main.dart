@@ -34,9 +34,9 @@ class _MyAppState extends State<MyApp> {
   bool camState = false;
   Offset position;
   Set<String> listQr = Set();
-  OverlayEntry overlayEntry;
-  List<Barcode> barcodes;
 
+  List<Barcode> barcodes;
+  OverlayEntry overlayEntry;
   @override
   initState() {
     super.initState();
@@ -126,6 +126,7 @@ class _MyAppState extends State<MyApp> {
           );
         },
       );
+
       Overlay.of(context).insert(overlayEntry);
     }
   }
@@ -186,7 +187,8 @@ class _MyAppState extends State<MyApp> {
   }
 
   List<Widget> _buildCustomPainter() {
-    if ((barcodes?.isNotEmpty ?? false) && Platform.isAndroid) {
+    print(barcodes);
+    if ((barcodes?.isNotEmpty ?? false)) {
       return barcodes
           .map(
             (barcode) => CustomPaint(

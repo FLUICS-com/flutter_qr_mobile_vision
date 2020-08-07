@@ -106,9 +106,9 @@ class QrReader: NSObject {
   var previewSize: CMVideoDimensions!
   let barcodeDetector: VisionBarcodeDetector
   let cameraPosition = AVCaptureDevice.Position.back
-  let qrCallback: (_:String) -> Void
+  let qrCallback: (_:[[String: Any]]) -> Void
   
-  init(targetWidth: Int, targetHeight: Int, textureHandler: TextureHandler, options: VisionBarcodeDetectorOptions, qrCallback: @escaping (_:String) -> Void) {
+  init(targetWidth: Int, targetHeight: Int, textureHandler: TextureHandler, options: VisionBarcodeDetectorOptions, qrCallback: @escaping (_:[[String: Any]]) -> Void) {
     self.targetWidth = targetWidth
     self.targetHeight = targetHeight
     self.textureHandler = textureHandler
@@ -193,13 +193,23 @@ extension QrReader: AVCaptureVideoDataOutputSampleBufferDelegate {
           return
         }
         
-        guard let features = features, !features.isEmpty else {
+        guard let features = features else {
           return
         }
-                
+        var barcodes = [[String: Any]]()
+              
         for feature in features {
-          self.qrCallback(feature.rawValue!)
+        var barcodeMap = [String: Any]()
+            
+            barcodeMap["rawValue"] = feature.rawValue
+            barcodeMap["left"] = feature.frame.origin.x
+            barcodeMap["top"] = feature.frame.origin.y
+            barcodeMap["width"] = feature.frame.width
+            barcodeMap["height"] = feature.frame.height
+          
+            barcodes.append(barcodeMap)
         }
+        self.qrCallback(barcodes)
       }
     }
   }
