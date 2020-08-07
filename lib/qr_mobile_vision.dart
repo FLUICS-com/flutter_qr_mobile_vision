@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_mobile_vision/barcode.dart';
 
 class PreviewDetails {
   num width;
@@ -10,7 +11,11 @@ class PreviewDetails {
   int textureId;
 
   PreviewDetails(
-      this.width, this.height, this.sensorOrientation, this.textureId);
+    this.width,
+    this.height,
+    this.sensorOrientation,
+    this.textureId,
+  );
 }
 
 enum BarcodeFormats {
@@ -43,9 +48,12 @@ class QrMobileVision {
   static Future<PreviewDetails> start({
     @required int width,
     @required int height,
+    int scaleResolution,
     @required QRCodeHandler qrCodeHandler,
     List<BarcodeFormats> formats = _defaultBarcodeFormats,
   }) async {
+    width = width * scaleResolution;
+    height = height * scaleResolution;
     final _formats = formats ?? _defaultBarcodeFormats;
     assert(_formats.length > 0);
 
@@ -78,6 +86,18 @@ class QrMobileVision {
     return _channel.invokeMethod('stop').catchError(print);
   }
 
+  static Future switchCamera() {
+    return _channel.invokeMethod('switchCamera');
+  }
+
+  static Future toggleTorch() {
+    return _channel.invokeMethod('toggleTorch');
+  }
+
+  static Future toggleZoom() {
+    return _channel.invokeMethod('toggleZoom');
+  }
+
   static Future heartbeat() {
     return _channel.invokeMethod('heartbeat').catchError(print);
   }
@@ -89,7 +109,7 @@ class QrMobileVision {
 
 enum FrameRotation { none, ninetyCC, oneeighty, twoseventyCC }
 
-typedef void QRCodeHandler(String qr);
+typedef void QRCodeHandler(List<Barcode> qr);
 
 class QrChannelReader {
   QrChannelReader(this.channel) {
@@ -97,8 +117,11 @@ class QrChannelReader {
       switch (call.method) {
         case 'qrRead':
           if (qrCodeHandler != null) {
-            assert(call.arguments is String);
-            qrCodeHandler(call.arguments);
+            assert(call.arguments is List);
+            final List<Barcode> barcodes = (call.arguments as List)
+                .map((barcode) => Barcode(barcode))
+                .toList();
+            qrCodeHandler(barcodes);
           }
           break;
         default:

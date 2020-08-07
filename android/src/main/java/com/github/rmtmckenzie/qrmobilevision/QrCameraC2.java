@@ -3,6 +3,7 @@ package com.github.rmtmckenzie.qrmobilevision;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -20,21 +21,20 @@ import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.WindowManager;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
-
-import com.google.firebase.ml.vision.common.FirebaseVisionImage;
-import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata;
-
+import com.google.android.gms.vision.Frame;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_AUTO;
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO;
 import static android.hardware.camera2.CameraMetadata.LENS_FACING_BACK;
+import static android.hardware.camera2.CameraMetadata.LENS_FACING_FRONT;
+import static com.github.rmtmckenzie.qrmobilevision.CameraZoom.ZOOM_1X;
+import static com.github.rmtmckenzie.qrmobilevision.CameraZoom.ZOOM_2X;
+import static com.github.rmtmckenzie.qrmobilevision.CameraZoom.ZOOM_4X;
 
 /**
  * Implements QrCamera using Camera2 API
@@ -62,12 +62,17 @@ class QrCameraC2 implements QrCamera {
     private CaptureRequest.Builder previewBuilder;
     private CameraCaptureSession previewSession;
     private Size[] jpegSizes = null;
-    private QrDetector detector;
+    private QrDetector2 detector;
     private int sensorOrientation;
     private CameraDevice cameraDevice;
     private CameraCharacteristics cameraCharacteristics;
+    private Integer cameraConfig = LENS_FACING_BACK;
+    private boolean isFlashSupported;
+    private boolean isTorchOn;
+    private CameraZoom cameraZoom;
+    private float zoomFactor = ZOOM_2X;
 
-    QrCameraC2(int width, int height, SurfaceTexture texture, Context context, QrDetector detector) {
+    QrCameraC2(int width, int height, SurfaceTexture texture, Context context, QrDetector2 detector) {
         this.targetWidth = width;
         this.targetHeight = height;
         this.context = context;
@@ -92,33 +97,91 @@ class QrCameraC2 implements QrCamera {
         return sensorOrientation == 270 ? 90 : sensorOrientation;
     }
 
-    private int getFirebaseOrientation() {
+    @Override
+    public void switchCamera() {
+        if (cameraConfig == LENS_FACING_BACK) {
+            cameraConfig = LENS_FACING_FRONT;
+            cameraDevice.close();
+            try {
+                start();
+            } catch (QrReader.Exception e) {
+                e.printStackTrace();
+            }
+        } else if (cameraConfig == LENS_FACING_FRONT) {
+            cameraConfig = LENS_FACING_BACK;
+            cameraDevice.close();
+            try {
+                start();
+            } catch (QrReader.Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Override
+    public void toggleTorch() {
+        try {
+            if (isFlashSupported) {
+                if (isTorchOn) {
+                    previewBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
+                    isTorchOn = false;
+                } else {
+                    previewBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH);
+                    isTorchOn = true;
+                }
+            }
+            previewSession.setRepeatingRequest(previewBuilder.build(), null, null);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    @Override
+    public void toggleZoom() {
+        if (zoomFactor == ZOOM_2X) {
+            zoomFactor = ZOOM_1X;
+        } else if (zoomFactor == ZOOM_1X) {
+            zoomFactor = ZOOM_2X;
+        }
+
+        try {
+            cameraZoom.setZoom(previewBuilder, zoomFactor);
+            previewSession.setRepeatingRequest(previewBuilder.build(), null, null);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
+    private int getFrameOrientation() {
         WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         int deviceRotation = windowManager.getDefaultDisplay().getRotation();
         int rotationCompensation = (ORIENTATIONS.get(deviceRotation) + sensorOrientation + 270) % 360;
 
-        // Return the corresponding FirebaseVisionImageMetadata rotation value.
         int result;
         switch (rotationCompensation) {
             case 0:
-                result = FirebaseVisionImageMetadata.ROTATION_0;
+                result = Frame.ROTATION_0;
                 break;
             case 90:
-                result = FirebaseVisionImageMetadata.ROTATION_90;
+                result = Frame.ROTATION_90;
                 break;
             case 180:
-                result = FirebaseVisionImageMetadata.ROTATION_180;
+                result = Frame.ROTATION_180;
                 break;
             case 270:
-                result = FirebaseVisionImageMetadata.ROTATION_270;
+                result = Frame.ROTATION_270;
                 break;
             default:
-                result = FirebaseVisionImageMetadata.ROTATION_0;
+                result = Frame.ROTATION_0;
                 Log.e(TAG, "Bad rotation value: " + rotationCompensation);
         }
         return result;
     }
 
+   
     @Override
     public void start() throws QrReader.Exception {
         CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
@@ -133,7 +196,7 @@ class QrCameraC2 implements QrCamera {
             for (String id : cameraIdList) {
                 CameraCharacteristics cameraCharacteristics = manager.getCameraCharacteristics(id);
                 Integer integer = cameraCharacteristics.get(CameraCharacteristics.LENS_FACING);
-                if (integer != null && integer == LENS_FACING_BACK) {
+                if (integer != null && integer.equals(cameraConfig)) {
                     cameraId = id;
                     break;
                 }
@@ -152,10 +215,12 @@ class QrCameraC2 implements QrCamera {
             StreamConfigurationMap map = cameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             Integer sensorOrientationInteger = cameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
             sensorOrientation = sensorOrientationInteger == null ? 0 : sensorOrientationInteger;
+            Boolean available = cameraCharacteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
+            isFlashSupported = available == null ? false : available;
+            cameraZoom = new CameraZoom(cameraCharacteristics);
 
             size = getAppropriateSize(map.getOutputSizes(SurfaceTexture.class));
             jpegSizes = map.getOutputSizes(ImageFormat.JPEG);
-
             manager.openCamera(cameraId, new CameraDevice.StateCallback() {
                 @Override
                 public void onOpened(@NonNull CameraDevice device) {
@@ -201,26 +266,7 @@ class QrCameraC2 implements QrCamera {
         }
     }
 
-    static class Frame implements QrDetector.Frame {
-        final Image image;
-        final int firebaseOrientation;
 
-        Frame(Image image, int firebaseOrientation) {
-            this.image = image;
-            this.firebaseOrientation = firebaseOrientation;
-        }
-
-        @Override
-        public FirebaseVisionImage toImage() {
-            return FirebaseVisionImage.fromMediaImage(image, firebaseOrientation);
-        }
-
-        @Override
-        public void close() {
-            image.close();
-        }
-
-    }
 
     private void startCamera() {
         List<Surface> list = new ArrayList<>();
@@ -235,10 +281,9 @@ class QrCameraC2 implements QrCamera {
         ImageReader.OnImageAvailableListener imageAvailableListener = new ImageReader.OnImageAvailableListener() {
             @Override
             public void onImageAvailable(ImageReader reader) {
-                try {
-                    Image image = reader.acquireLatestImage();
+                try (Image image = reader.acquireLatestImage()) {
                     if (image == null) return;
-                    detector.detect(new Frame(image, getFirebaseOrientation()));
+                    detector.detect(image, getFrameOrientation());
                 } catch (Throwable t) {
                     t.printStackTrace();
                 }
@@ -257,6 +302,7 @@ class QrCameraC2 implements QrCamera {
             Integer afMode = afMode(cameraCharacteristics);
 
             previewBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+            cameraZoom.setZoom(previewBuilder, zoomFactor);
 
             if (afMode != null) {
                 previewBuilder.set(CaptureRequest.CONTROL_AF_MODE, afMode);
@@ -267,6 +313,7 @@ class QrCameraC2 implements QrCamera {
                     previewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
                 }
             }
+
         } catch (java.lang.Exception e) {
             e.printStackTrace();
             return;

@@ -25,16 +25,19 @@ android {
     compileSdkVersion 29
 
     defaultConfig {
-        minSdkVersion 16
+        minSdkVersion 21
     }
     lintOptions {
         disable 'InvalidPackage'
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
 }
 
 dependencies {
-    implementation 'com.google.firebase:firebase-ml-vision:24.0.2'
-    implementation 'com.google.firebase:firebase-ml-vision-barcode-model:16.1.0'
+   implementation 'com.google.android.gms:play-services-mlkit-barcode-scanning:16.1.1'
 }
 
 

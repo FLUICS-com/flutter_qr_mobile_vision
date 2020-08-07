@@ -4,15 +4,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
+import 'package:qr_mobile_vision/barcode.dart';
 import 'package:qr_mobile_vision/qr_mobile_vision.dart';
 
 final WidgetBuilder _defaultNotStartedBuilder =
-    (context) => new Text("Camera Loading ...");
+    (context) => Text("Camera Loading ...");
 final WidgetBuilder _defaultOffscreenBuilder =
-    (context) => new Text("Camera Paused.");
+    (context) => Text("Camera Paused.");
 final ErrorCallback _defaultOnError = (BuildContext context, Object error) {
   print("Error reading from camera: $error");
-  return new Text("Error reading from camera...");
+  return Text("Error reading from camera...");
 };
 
 typedef Widget ErrorCallback(BuildContext context, Object error);
@@ -25,8 +26,10 @@ class QrCamera extends StatefulWidget {
     this.fit = BoxFit.cover,
     WidgetBuilder notStartedBuilder,
     WidgetBuilder offscreenBuilder,
+    this.scaleResolution = 1,
     ErrorCallback onError,
     this.formats,
+    this.customPainter,
   })  : notStartedBuilder = notStartedBuilder ?? _defaultNotStartedBuilder,
         offscreenBuilder =
             offscreenBuilder ?? notStartedBuilder ?? _defaultOffscreenBuilder,
@@ -35,15 +38,16 @@ class QrCamera extends StatefulWidget {
         super(key: key);
 
   final BoxFit fit;
-  final ValueChanged<String> qrCodeCallback;
+  final ValueChanged<List<Barcode>> qrCodeCallback;
   final Widget child;
   final WidgetBuilder notStartedBuilder;
   final WidgetBuilder offscreenBuilder;
+  final int scaleResolution;
   final ErrorCallback onError;
   final List<BarcodeFormats> formats;
-
+  final List<Widget> customPainter;
   @override
-  QrCameraState createState() => new QrCameraState();
+  QrCameraState createState() => QrCameraState();
 }
 
 class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
@@ -81,6 +85,7 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
     var previewDetails = await QrMobileVision.start(
       width: width.toInt(),
       height: height.toInt(),
+      scaleResolution: widget.scaleResolution,
       qrCodeHandler: widget.qrCodeCallback,
       formats: widget.formats,
     );
@@ -114,7 +119,7 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return new LayoutBuilder(
+    return LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
       if (_asyncInitOnce == null && onScreen) {
         _asyncInitOnce =
@@ -123,7 +128,7 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
         return widget.offscreenBuilder(context);
       }
 
-      return new FutureBuilder(
+      return FutureBuilder(
         future: _asyncInitOnce,
         builder: (BuildContext context, AsyncSnapshot<PreviewDetails> details) {
           switch (details.connectionState) {
@@ -135,7 +140,7 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
                 debugPrint(details.error.toString());
                 return widget.onError(context, details.error);
               }
-              Widget preview = new SizedBox(
+              Widget preview = SizedBox(
                 width: constraints.maxWidth,
                 height: constraints.maxHeight,
                 child: Preview(
@@ -143,11 +148,12 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
                   targetWidth: constraints.maxWidth,
                   targetHeight: constraints.maxHeight,
                   fit: widget.fit,
+                  customPainter: widget.customPainter,
                 ),
               );
 
               if (widget.child != null) {
-                return new Stack(
+                return Stack(
                   children: [
                     preview,
                     widget.child,
@@ -157,8 +163,7 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
               return preview;
 
             default:
-              throw new AssertionError(
-                  "${details.connectionState} not supported.");
+              throw AssertionError("${details.connectionState} not supported.");
           }
         },
       );
@@ -172,12 +177,14 @@ class Preview extends StatelessWidget {
   final int textureId;
   final int sensorOrientation;
   final BoxFit fit;
+  final List<Widget> customPainter;
 
   Preview({
     @required PreviewDetails previewDetails,
     @required this.targetWidth,
     @required this.targetHeight,
     @required this.fit,
+    this.customPainter,
   })  : assert(previewDetails != null),
         textureId = previewDetails.textureId,
         width = previewDetails.width.toDouble(),
@@ -186,7 +193,7 @@ class Preview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return new NativeDeviceOrientationReader(
+    return NativeDeviceOrientationReader(
       builder: (context) {
         var nativeOrientation =
             NativeDeviceOrientationReader.orientation(context);
@@ -216,14 +223,19 @@ class Preview extends StatelessWidget {
         double frameHeight = width;
         double frameWidth = height;
 
-        return new FittedBox(
+        return FittedBox(
           fit: fit,
-          child: new RotatedBox(
+          child: RotatedBox(
             quarterTurns: rotationCompensation,
-            child: new SizedBox(
+            child: SizedBox(
               width: frameWidth,
               height: frameHeight,
-              child: new Texture(textureId: textureId),
+              child: Stack(
+                children: <Widget>[
+                  Texture(textureId: textureId),
+                  if (customPainter != null) ...customPainter,
+                ],
+              ),
             ),
           ),
         );
