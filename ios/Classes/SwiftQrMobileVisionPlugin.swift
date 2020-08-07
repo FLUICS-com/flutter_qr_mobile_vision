@@ -62,11 +62,13 @@ public class SwiftQrMobileVisionPlugin: NSObject, FlutterPlugin {
       }
 
       let options = VisionBarcodeDetectorOptions(formatStrings: formatStrings)
-            
+      
+      let texture = TextureHandler(registry: textureRegistry)
+      
       reader = QrReader(
         targetWidth: targetWidth,
         targetHeight: targetHeight,
-        textureRegistry: textureRegistry,
+        textureHandler: texture,
         options: options) { [unowned self] qr in
           self.channel.invokeMethod("qrRead", arguments: qr)
       }
@@ -77,7 +79,7 @@ public class SwiftQrMobileVisionPlugin: NSObject, FlutterPlugin {
         "surfaceWidth": reader!.previewSize.height,
         "surfaceHeight": reader!.previewSize.width,
         "surfaceOrientation": 0, //TODO: check on iPAD
-        "textureId": reader!.textureId!
+        "textureId": texture.textureId!
       ])
     case "stop":
       reader?.stop();
