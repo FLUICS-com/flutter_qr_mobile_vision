@@ -3,7 +3,6 @@ package com.github.rmtmckenzie.qrmobilevision;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.ImageFormat;
-import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -21,12 +20,16 @@ import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.WindowManager;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+
 import com.google.android.gms.vision.Frame;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_AUTO;
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO;
@@ -66,18 +69,20 @@ class QrCameraC2 implements QrCamera {
     private int sensorOrientation;
     private CameraDevice cameraDevice;
     private CameraCharacteristics cameraCharacteristics;
-    private Integer cameraConfig = LENS_FACING_BACK;
+    private Integer cameraLensFacing;
     private boolean isFlashSupported;
     private boolean isTorchOn;
     private CameraZoom cameraZoom;
-    private float zoomFactor = ZOOM_2X;
+    private float zoomFactor;
 
-    QrCameraC2(int width, int height, SurfaceTexture texture, Context context, QrDetector2 detector) {
+    QrCameraC2(int width, int height, float zoomFactor, int cameraLensFacing, SurfaceTexture texture, Context context, QrDetector2 detector) {
         this.targetWidth = width;
         this.targetHeight = height;
         this.context = context;
         this.texture = texture;
         this.detector = detector;
+        this.zoomFactor = zoomFactor;
+        this.cameraLensFacing = cameraLensFacing;
     }
 
     @Override
@@ -95,27 +100,6 @@ class QrCameraC2 implements QrCamera {
         // ignore sensor orientation of devices with 'reverse landscape' orientation of sensor
         // as camera2 api seems to already rotate the output.
         return sensorOrientation == 270 ? 90 : sensorOrientation;
-    }
-
-    @Override
-    public void switchCamera() {
-        if (cameraConfig == LENS_FACING_BACK) {
-            cameraConfig = LENS_FACING_FRONT;
-            cameraDevice.close();
-            try {
-                start();
-            } catch (QrReader.Exception e) {
-                e.printStackTrace();
-            }
-        } else if (cameraConfig == LENS_FACING_FRONT) {
-            cameraConfig = LENS_FACING_BACK;
-            cameraDevice.close();
-            try {
-                start();
-            } catch (QrReader.Exception e) {
-                e.printStackTrace();
-            }
-        }
     }
 
     @Override
@@ -138,20 +122,56 @@ class QrCameraC2 implements QrCamera {
     }
 
     @Override
-    public void toggleZoom() {
-        if (zoomFactor == ZOOM_2X) {
-            zoomFactor = ZOOM_1X;
-        } else if (zoomFactor == ZOOM_1X) {
-            zoomFactor = ZOOM_2X;
-        }
+    public float getZoomFactor() {
+        return zoomFactor;
+    }
 
-        try {
-            cameraZoom.setZoom(previewBuilder, zoomFactor);
-            previewSession.setRepeatingRequest(previewBuilder.build(), null, null);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
+    @Override
+    public int getCameraLensFacing() {
+        return cameraLensFacing;
+    }
 
+    @Override
+    public void setZoomFactor(Float zoomFactor) {
+        if (zoomFactor != null) {
+            if (zoomFactor == ZOOM_1X) {
+                this.zoomFactor = ZOOM_1X;
+            } else if (zoomFactor == ZOOM_2X) {
+                this.zoomFactor = ZOOM_2X;
+            } else if (zoomFactor == ZOOM_4X) {
+                this.zoomFactor = ZOOM_4X;
+            } else {
+                return;
+            }
+            try {
+                cameraZoom.setZoom(previewBuilder, zoomFactor);
+                previewSession.setRepeatingRequest(previewBuilder.build(), null, null);
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Override
+    public void setCameraLensFacing(Integer cameraLensFacing) {
+        if (cameraLensFacing != null) {
+            switch (cameraLensFacing) {
+                case LENS_FACING_BACK:
+                    this.cameraLensFacing = LENS_FACING_BACK;
+                    break;
+                case LENS_FACING_FRONT:
+                    this.cameraLensFacing = LENS_FACING_FRONT;
+                    break;
+                default:
+                    return;
+            }
+            cameraDevice.close();
+            try {
+                start();
+            } catch (QrReader.Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
 
@@ -181,7 +201,7 @@ class QrCameraC2 implements QrCamera {
         return result;
     }
 
-   
+
     @Override
     public void start() throws QrReader.Exception {
         CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
@@ -196,7 +216,7 @@ class QrCameraC2 implements QrCamera {
             for (String id : cameraIdList) {
                 CameraCharacteristics cameraCharacteristics = manager.getCameraCharacteristics(id);
                 Integer integer = cameraCharacteristics.get(CameraCharacteristics.LENS_FACING);
-                if (integer != null && integer.equals(cameraConfig)) {
+                if (integer != null && integer.equals(cameraLensFacing)) {
                     cameraId = id;
                     break;
                 }
@@ -265,7 +285,6 @@ class QrCameraC2 implements QrCamera {
             return null;
         }
     }
-
 
 
     private void startCamera() {

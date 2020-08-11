@@ -1,10 +1,13 @@
 package com.github.rmtmckenzie.qrmobilevision;
+
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
+
 import com.google.android.gms.vision.CameraSource;
+
 import java.io.IOException;
 
 class QrReader {
@@ -15,13 +18,13 @@ class QrReader {
     private Heartbeat heartbeat;
     private CameraSource camera;
 
-    QrReader(int width, int height, Activity context, int barcodeFormats,
+    QrReader(int width, int height, float zoomFactor, int cameraLensFacing, Activity context, int barcodeFormats,
              final QRReaderStartedCallback startedCallback, final QrReaderCallbacks communicator,
              final SurfaceTexture texture) {
         this.context = context;
         this.startedCallback = startedCallback;
 
-        qrCamera = new QrCameraC2(width, height, texture, context, new QrDetector2(communicator, context, barcodeFormats));
+        qrCamera = new QrCameraC2(width, height, zoomFactor, cameraLensFacing, texture, context, new QrDetector2(communicator, context, barcodeFormats));
 
     }
 
@@ -58,17 +61,21 @@ class QrReader {
         }
     }
 
-    public void switchCamera() {
-        qrCamera.switchCamera();
+    public void setCameraLensFacing(Integer cameraLensFacing) {
+        qrCamera.setCameraLensFacing(cameraLensFacing);
     }
 
     public void toggleTorch() {
         qrCamera.toggleTorch();
     }
 
-    public void toggleZoom() {
-        qrCamera.toggleZoom();
+    public void setZoomFactor(Float zoomFactor) {
+        qrCamera.setZoomFactor(zoomFactor);
     }
+
+    public int getCameraLensFacing() {return qrCamera.getCameraLensFacing();}
+
+    public float getZoomFactor() {return qrCamera.getZoomFactor();}
 
     void stop() {
         if (heartbeat != null) {

@@ -161,10 +161,12 @@ public class QrMobileVisionPlugin implements MethodCallHandler, QrReaderCallback
                     lastHeartbeatTimeout = methodCall.argument("heartbeatTimeout");
                     Integer targetWidth = methodCall.argument("targetWidth");
                     Integer targetHeight = methodCall.argument("targetHeight");
+                    Double zoomFactor = methodCall.argument("zoomFactor");
+                    Integer cameraLensFacing = methodCall.argument("cameraLensFacing");
                     List<String> formatStrings = methodCall.argument("formats");
 
-                    if (targetWidth == null || targetHeight == null) {
-                        result.error("INVALID_ARGUMENT", "Missing a required argument", "Expecting targetWidth, targetHeight, and optionally heartbeatTimeout");
+                    if (targetWidth == null || targetHeight == null || zoomFactor == null || cameraLensFacing == null) {
+                        result.error("INVALID_ARGUMENT", "Missing a required argument", "Expecting targetWidth, targetHeight, zoomFactor, cameraLensFacing, and optionally heartbeatTimeout");
                         break;
                     }
 
@@ -172,7 +174,7 @@ public class QrMobileVisionPlugin implements MethodCallHandler, QrReaderCallback
 
                     TextureRegistry.SurfaceTextureEntry textureEntry = textures.createSurfaceTexture();
 
-                    QrReader reader = new QrReader(targetWidth, targetHeight, activity, barcodeFormats,
+                    QrReader reader = new QrReader(targetWidth, targetHeight, zoomFactor.floatValue(), cameraLensFacing, activity, barcodeFormats,
                         this, this, textureEntry.surfaceTexture());
 
                     readingInstance = new ReadingInstance(reader, textureEntry, result);
@@ -201,9 +203,10 @@ public class QrMobileVisionPlugin implements MethodCallHandler, QrReaderCallback
                 result.success(null);
                 break;
             }
-            case "switchCamera": {
+            case "setCameraLensFacing": {
                 if (readingInstance != null && !waitingForPermissionResult) {
-                    readingInstance.reader.switchCamera();
+                    Integer cameraLensFacing = methodCall.arguments();
+                    readingInstance.reader.setCameraLensFacing(cameraLensFacing);
                 }
                 result.success(null);
                 break;
@@ -215,11 +218,28 @@ public class QrMobileVisionPlugin implements MethodCallHandler, QrReaderCallback
                 result.success(null);
                 break;
             }
-            case "toggleZoom": {
+            case "setZoomFactor": {
                 if (readingInstance != null && !waitingForPermissionResult) {
-                    readingInstance.reader.toggleZoom();
+                    Double zoomFactor = methodCall.arguments();
+                    readingInstance.reader.setZoomFactor(zoomFactor.floatValue());
                 }
                 result.success(null);
+                break;
+            }
+            case "getZoomFactor": {
+                if (readingInstance != null && !waitingForPermissionResult) {
+                    result.success(readingInstance.reader.getZoomFactor());
+                } else {
+                    result.success(null);
+                }
+                break;
+            }
+            case "getCameraLensFacing": {
+                if (readingInstance != null && !waitingForPermissionResult) {
+                    result.success(readingInstance.reader.getCameraLensFacing());
+                } else {
+                    result.success(null);
+                }
                 break;
             }
             case "heartbeat": {
