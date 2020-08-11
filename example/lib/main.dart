@@ -1,11 +1,10 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_mobile_vision/qr_camera.dart';
 import 'package:qr_mobile_vision/qr_mobile_vision.dart';
 import 'package:qr_mobile_vision/barcode.dart';
+import 'package:qr_mobile_vision/camera_config.dart';
 
 void main() {
   debugPaintSizeEnabled = false;
@@ -31,7 +30,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   String qr;
-  bool camState = false;
+  CameraStatus camState = CameraStatus.inactive;
   Offset position;
   Set<String> listQr = Set();
 
@@ -41,6 +40,9 @@ class _MyAppState extends State<MyApp> {
   initState() {
     super.initState();
     position = Offset(30, 30);
+    QrMobileVision.getCameraStatus().then((status) {
+      camState = status;
+    });
   }
 
   @override
@@ -62,13 +64,15 @@ class _MyAppState extends State<MyApp> {
                 feedback: FlatButton(
                   child: Text('Change camera'),
                   onPressed: () {
-                    QrMobileVision.switchCamera();
+                    QrMobileVision.setCameraLensFacing(
+                        CameraLensDirection.back);
                   },
                 ),
                 child: FlatButton(
                   child: Text('Change camera'),
                   onPressed: () {
-                    QrMobileVision.switchCamera();
+                    QrMobileVision.setCameraLensFacing(
+                        CameraLensDirection.front);
                   },
                 ),
               ),
@@ -87,7 +91,7 @@ class _MyAppState extends State<MyApp> {
               FlatButton(
                 child: Text('Zoom'),
                 onPressed: () {
-                  QrMobileVision.toggleZoom();
+                  QrMobileVision.setZoomFactor(CameraZoomFactor.zoom_4x);
                   overlayEntry.markNeedsBuild();
                 },
               ),
@@ -107,10 +111,22 @@ class _MyAppState extends State<MyApp> {
             Icons.camera,
             color: Colors.white,
           ),
-          onPressed: () {
-            camState = !camState;
-            showCameraPreview();
-            overlayEntry.markNeedsBuild();
+          onPressed: () async {
+            await QrMobileVision.getCameraStatus().then((status) {
+              camState = status;
+            });
+            if (camState == CameraStatus.inactive) {
+              showCameraPreview();
+            } else {
+              await QrMobileVision.stop();
+              overlayEntry?.remove();
+              overlayEntry = null;
+            }
+            await QrMobileVision.getCameraStatus().then((status) {
+              camState = status;
+            });
+
+            overlayEntry?.markNeedsBuild();
           }),
     );
   }
@@ -122,7 +138,9 @@ class _MyAppState extends State<MyApp> {
           return Positioned(
             top: position.dy,
             left: position.dx,
-            child: camState ? buildCamera() : const SizedBox.shrink(),
+            child: camState == CameraStatus.inactive
+                ? buildCamera()
+                : const SizedBox.shrink(),
           );
         },
       );
