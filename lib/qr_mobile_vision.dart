@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_mobile_vision/barcode.dart';
 import 'package:qr_mobile_vision/camera_config.dart';
@@ -149,6 +150,16 @@ class QrMobileVision {
         await _channel.invokeMethod('getCameraLensFacing');
     if (cameraLensFacing == null) return null;
     return CameraLensDirection.values.elementAt(cameraLensFacing);
+  }
+
+  static Future<Size> getTextureSize() async {
+    final textureSize = await _channel.invokeMethod('getTextureSize');
+    if (textureSize != null && textureSize is Map) {
+      final Map<String, int> size = textureSize.cast<String, int>();
+      return Size(
+          size['surfaceWidth'].toDouble(), size['surfaceHeight'].toDouble());
+    }
+    return null;
   }
 
   static Future heartbeat() {

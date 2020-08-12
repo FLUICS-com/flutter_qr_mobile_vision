@@ -242,6 +242,17 @@ public class QrMobileVisionPlugin implements MethodCallHandler, QrReaderCallback
                 }
                 break;
             }
+            case "getTextureSize": {
+                if (readingInstance != null && !waitingForPermissionResult) {
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("surfaceWidth", readingInstance.reader.qrCamera.getWidth());
+                    response.put("surfaceHeight", readingInstance.reader.qrCamera.getHeight());
+                    result.success(response);
+                } else {
+                    result.success(null);
+                }
+                break;
+            }
             case "heartbeat": {
                 if (readingInstance != null) {
                     readingInstance.reader.heartBeat();

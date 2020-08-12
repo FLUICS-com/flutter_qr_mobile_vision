@@ -266,19 +266,56 @@ class Preview extends StatelessWidget {
           fit: fit,
           child: RotatedBox(
             quarterTurns: rotationCompensation,
-            child: SizedBox(
-              width: frameWidth,
-              height: frameHeight,
-              child: Stack(
-                children: <Widget>[
-                  Texture(textureId: textureId),
-                  if (customPainter != null) ...customPainter,
-                ],
-              ),
-            ),
+            child: FutureBuilder<Size>(
+                future: QrMobileVision.getTextureSize(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return CameraPreview(
+                      textureId: textureId,
+                      customPainter: customPainter,
+                      width: snapshot.data.height,
+                      height: snapshot.data.width,
+                    );
+                  }
+                  return CameraPreview(
+                    textureId: textureId,
+                    customPainter: customPainter,
+                    width: frameWidth,
+                    height: frameHeight,
+                  );
+                }),
           ),
         );
       },
+    );
+  }
+}
+
+class CameraPreview extends StatelessWidget {
+  const CameraPreview({
+    Key key,
+    this.textureId,
+    this.customPainter,
+    this.height,
+    this.width,
+  }) : super(key: key);
+
+  final int textureId;
+  final List<Widget> customPainter;
+  final double height;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: Stack(
+        children: <Widget>[
+          Texture(textureId: textureId),
+          if (customPainter != null) ...customPainter,
+        ],
+      ),
     );
   }
 }
