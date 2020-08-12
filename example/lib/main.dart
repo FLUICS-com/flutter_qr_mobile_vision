@@ -33,6 +33,7 @@ class _MyAppState extends State<MyApp> {
   CameraStatus camState = CameraStatus.inactive;
   Offset position;
   Set<String> listQr = Set();
+  GlobalKey<QrCameraState> key = GlobalKey();
 
   List<Barcode> barcodes;
   OverlayEntry overlayEntry;
@@ -73,6 +74,7 @@ class _MyAppState extends State<MyApp> {
                   onPressed: () {
                     QrMobileVision.setCameraLensFacing(
                         CameraLensDirection.front);
+                    key.currentState.updateTextureSize();
                   },
                 ),
               ),
@@ -165,6 +167,7 @@ class _MyAppState extends State<MyApp> {
             child: Material(
               elevation: 7,
               child: QrCamera(
+                key: key,
                 customPainter: _buildCustomPainter(),
                 fit: BoxFit.cover,
                 scaleResolution: 2,

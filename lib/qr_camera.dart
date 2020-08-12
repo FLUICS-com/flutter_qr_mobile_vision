@@ -56,6 +56,8 @@ class QrCamera extends StatefulWidget {
 }
 
 class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
+  Size _textureSize;
+
   @override
   void initState() {
     super.initState();
@@ -153,6 +155,16 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
     QrMobileVision.stop();
   }
 
+  void updateTextureSize() {
+    QrMobileVision.getTextureSize().then((value) {
+      if (value != null) {
+        setState(() {
+          _textureSize = value;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -180,7 +192,7 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
                 width: constraints.maxWidth,
                 height: constraints.maxHeight,
                 child: Preview(
-                  previewDetails: details.data,
+                  previewDetails: _getPreviewDetails(details.data),
                   targetWidth: constraints.maxWidth,
                   targetHeight: constraints.maxHeight,
                   fit: widget.fit,
@@ -204,6 +216,14 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
         },
       );
     });
+  }
+
+  PreviewDetails _getPreviewDetails(PreviewDetails previewDetails) {
+    if (_textureSize == null) {
+      return previewDetails;
+    }
+    return PreviewDetails(_textureSize.width, _textureSize.height,
+        previewDetails.sensorOrientation, previewDetails.textureId);
   }
 }
 
@@ -266,24 +286,12 @@ class Preview extends StatelessWidget {
           fit: fit,
           child: RotatedBox(
             quarterTurns: rotationCompensation,
-            child: FutureBuilder<Size>(
-                future: QrMobileVision.getTextureSize(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    return CameraPreview(
-                      textureId: textureId,
-                      customPainter: customPainter,
-                      width: snapshot.data.height,
-                      height: snapshot.data.width,
-                    );
-                  }
-                  return CameraPreview(
-                    textureId: textureId,
-                    customPainter: customPainter,
-                    width: frameWidth,
-                    height: frameHeight,
-                  );
-                }),
+            child: CameraPreview(
+              textureId: textureId,
+              customPainter: customPainter,
+              width: frameWidth,
+              height: frameHeight,
+            ),
           ),
         );
       },
