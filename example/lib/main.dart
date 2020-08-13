@@ -93,7 +93,7 @@ class _MyAppState extends State<MyApp> {
               FlatButton(
                 child: Text('Zoom'),
                 onPressed: () {
-                  QrMobileVision.setZoomFactor(CameraZoomFactor.zoom_4x);
+                  QrMobileVision.setZoomFactor(CameraZoomFactor.zoom_2x);
                   overlayEntry.markNeedsBuild();
                 },
               ),
@@ -207,56 +207,49 @@ class _MyAppState extends State<MyApp> {
     overlayEntry.markNeedsBuild();
   }
 
-  List<Widget> _buildCustomPainter() {
-    print(barcodes);
+  CustomPainter _buildCustomPainter() {
     if ((barcodes?.isNotEmpty ?? false)) {
-      return barcodes
-          .map(
-            (barcode) => CustomPaint(
-              foregroundPainter: barcode == null
-                  ? null
-                  : BarcodePainter(
-                      barcode: barcode,
-                      listQr: listQr,
-                    ),
-            ),
-          )
-          .toList();
+      return BarcodePainter(
+        barcodes: barcodes,
+        listQr: listQr,
+      );
     }
     return null;
   }
 }
 
 class BarcodePainter extends CustomPainter {
-  BarcodePainter({this.barcode, this.detectorImageSize, this.listQr});
+  BarcodePainter({this.barcodes, this.detectorImageSize, this.listQr});
 
   final Size detectorImageSize;
-  final Barcode barcode;
+  final List<Barcode> barcodes;
   final Set<String> listQr;
 
   @override
   void paint(Canvas canvas, Size size) {
-    Rect scaleRect(Barcode barcode) {
-      return Rect.fromLTRB(
-        barcode.boundingBox.left,
-        barcode.boundingBox.top,
-        barcode.boundingBox.right,
-        barcode.boundingBox.bottom,
-      );
+    for (var barcode in barcodes) {
+      Rect scaleRect(Barcode barcode) {
+        return Rect.fromLTRB(
+          barcode.boundingBox.left,
+          barcode.boundingBox.top,
+          barcode.boundingBox.right,
+          barcode.boundingBox.bottom,
+        );
+      }
+
+      final Paint paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4.0;
+
+      paint.color =
+          listQr.contains(barcode.rawValue) ? Colors.green : Colors.white;
+      if (!listQr.contains(barcode.rawValue)) {
+        HapticFeedback.mediumImpact();
+        listQr.add(barcode.rawValue);
+      }
+
+      canvas.drawRect(scaleRect(barcode), paint);
     }
-
-    final Paint paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0;
-
-    paint.color =
-        listQr.contains(barcode.rawValue) ? Colors.green : Colors.white;
-    if (!listQr.contains(barcode.rawValue)) {
-      HapticFeedback.mediumImpact();
-      listQr.add(barcode.rawValue);
-    }
-
-    canvas.drawRect(scaleRect(barcode), paint);
   }
 
   @override
