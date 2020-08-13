@@ -48,7 +48,7 @@ class QrCamera extends StatefulWidget {
   final int scaleResolution;
   final ErrorCallback onError;
   final List<BarcodeFormats> formats;
-  final List<Widget> customPainter;
+  final CustomPainter customPainter;
   final CameraLensDirection cameraLensDirection;
   final CameraZoomFactor cameraZoomFactor;
   @override
@@ -233,7 +233,7 @@ class Preview extends StatelessWidget {
   final int textureId;
   final int sensorOrientation;
   final BoxFit fit;
-  final List<Widget> customPainter;
+  final CustomPainter customPainter;
 
   Preview({
     @required PreviewDetails previewDetails,
@@ -309,7 +309,7 @@ class CameraPreview extends StatelessWidget {
   }) : super(key: key);
 
   final int textureId;
-  final List<Widget> customPainter;
+  final CustomPainter customPainter;
   final double height;
   final double width;
 
@@ -318,11 +318,9 @@ class CameraPreview extends StatelessWidget {
     return SizedBox(
       width: width,
       height: height,
-      child: Stack(
-        children: <Widget>[
-          Texture(textureId: textureId),
-          if (customPainter != null) ...customPainter,
-        ],
+      child: CustomPaint(
+        foregroundPainter: customPainter,
+        child: Texture(textureId: textureId),
       ),
     );
   }
