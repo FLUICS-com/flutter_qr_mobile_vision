@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -33,10 +33,12 @@ class QrCamera extends StatefulWidget {
     ErrorCallback onError,
     this.formats,
     this.customPainter,
+    bool isFlipCameraPreview,
   })  : notStartedBuilder = notStartedBuilder ?? _defaultNotStartedBuilder,
         offscreenBuilder =
             offscreenBuilder ?? notStartedBuilder ?? _defaultOffscreenBuilder,
         onError = onError ?? _defaultOnError,
+        isFlipCameraPreview = isFlipCameraPreview ?? false,
         assert(fit != null),
         super(key: key);
 
@@ -51,6 +53,7 @@ class QrCamera extends StatefulWidget {
   final CustomPainter customPainter;
   final CameraLensDirection cameraLensDirection;
   final CameraZoomFactor cameraZoomFactor;
+  final bool isFlipCameraPreview;
   @override
   QrCameraState createState() => QrCameraState();
 }
@@ -197,6 +200,7 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
                   targetHeight: constraints.maxHeight,
                   fit: widget.fit,
                   customPainter: widget.customPainter,
+                  isFlipCameraPreview: widget.isFlipCameraPreview,
                 ),
               );
 
@@ -234,12 +238,14 @@ class Preview extends StatelessWidget {
   final int sensorOrientation;
   final BoxFit fit;
   final CustomPainter customPainter;
+  final bool isFlipCameraPreview;
 
   Preview({
     @required PreviewDetails previewDetails,
     @required this.targetWidth,
     @required this.targetHeight,
     @required this.fit,
+    this.isFlipCameraPreview,
     this.customPainter,
   })  : assert(previewDetails != null),
         textureId = previewDetails.textureId,
@@ -291,6 +297,7 @@ class Preview extends StatelessWidget {
               customPainter: customPainter,
               width: frameWidth,
               height: frameHeight,
+              isFlipCameraPreview: isFlipCameraPreview,
             ),
           ),
         );
@@ -306,12 +313,14 @@ class CameraPreview extends StatelessWidget {
     this.customPainter,
     this.height,
     this.width,
+    this.isFlipCameraPreview,
   }) : super(key: key);
 
   final int textureId;
   final CustomPainter customPainter;
   final double height;
   final double width;
+  final bool isFlipCameraPreview;
 
   @override
   Widget build(BuildContext context) {
@@ -320,8 +329,24 @@ class CameraPreview extends StatelessWidget {
       height: height,
       child: CustomPaint(
         foregroundPainter: customPainter,
-        child: Texture(textureId: textureId),
+        child: _buildTexture(),
       ),
     );
+  }
+
+  Widget _buildTexture() {
+    if (isFlipCameraPreview) {
+      final flipMatrix = Matrix4.identity()
+        ..setEntry(3, 2, 0.001)
+        ..rotateY(-math.pi);
+
+      return Transform(
+        transform: flipMatrix,
+        alignment: Alignment.center,
+        child: Texture(textureId: textureId),
+      );
+    } else {
+      return Texture(textureId: textureId);
+    }
   }
 }
