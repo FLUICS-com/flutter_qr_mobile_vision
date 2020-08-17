@@ -5,232 +5,316 @@ import os.log
 
 
 extension VisionBarcodeDetectorOptions {
-  convenience init(formatStrings: [String]) {
-    let formats = formatStrings.map { (format) -> VisionBarcodeFormat? in
-      switch format  {
-      case "ALL_FORMATS":
-        return .all
-      case "AZTEC":
-        return .aztec
-      case "CODE_128":
-        return .code128
-      case "CODE_39":
-        return .code39
-      case "CODE_93":
-        return .code93
-      case "CODABAR":
-        return .codaBar
-      case "DATA_MATRIX":
-        return .dataMatrix
-      case "EAN_13":
-        return .EAN13
-      case "EAN_8":
-        return .EAN8
-      case "ITF":
-        return .ITF
-      case "PDF417":
-        return .PDF417
-      case "QR_CODE":
-        return .qrCode
-      case "UPC_A":
-        return .UPCA
-      case "UPC_E":
-        return .UPCE
-      default:
-        // ignore any unknown values
-        return nil
-      }
-    }.reduce([]) { (result, format) -> VisionBarcodeFormat in
-      guard let format = format else {
-        return result
-      }
-      return result.union(format)
+    convenience init(formatStrings: [String]) {
+        let formats = formatStrings.map { (format) -> VisionBarcodeFormat? in
+            switch format  {
+            case "ALL_FORMATS":
+                return .all
+            case "AZTEC":
+                return .aztec
+            case "CODE_128":
+                return .code128
+            case "CODE_39":
+                return .code39
+            case "CODE_93":
+                return .code93
+            case "CODABAR":
+                return .codaBar
+            case "DATA_MATRIX":
+                return .dataMatrix
+            case "EAN_13":
+                return .EAN13
+            case "EAN_8":
+                return .EAN8
+            case "ITF":
+                return .ITF
+            case "PDF417":
+                return .PDF417
+            case "QR_CODE":
+                return .qrCode
+            case "UPC_A":
+                return .UPCA
+            case "UPC_E":
+                return .UPCE
+            default:
+                // ignore any unknown values
+                return nil
+            }
+        }.reduce([]) { (result, format) -> VisionBarcodeFormat in
+            guard let format = format else {
+                return result
+            }
+            return result.union(format)
+        }
+        
+        self.init(formats: formats)
     }
-    
-    self.init(formats: formats)
-  }
 }
 
 class OrientationHandler {
-  
-  var lastKnownOrientation: UIDeviceOrientation!
-  
-  init() {
-    setLastOrientation(UIDevice.current.orientation, defaultOrientation: .portrait)
-    UIDevice.current.beginGeneratingDeviceOrientationNotifications()
     
-    NotificationCenter.default.addObserver(forName: UIDevice.orientationDidChangeNotification, object: nil, queue: nil, using: orientationDidChange(_:))
-  }
-  
-  func setLastOrientation(_ deviceOrientation: UIDeviceOrientation, defaultOrientation: UIDeviceOrientation?) {
+    var lastKnownOrientation: UIDeviceOrientation!
     
-    // set last device orientation but only if it is recognized
-    switch deviceOrientation {
-    case .unknown, .faceUp, .faceDown:
-      lastKnownOrientation = defaultOrientation ?? lastKnownOrientation
-      break
-    default:
-      lastKnownOrientation = deviceOrientation
+    init() {
+        setLastOrientation(UIDevice.current.orientation, defaultOrientation: .portrait)
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+        
+        NotificationCenter.default.addObserver(forName: UIDevice.orientationDidChangeNotification, object: nil, queue: nil, using: orientationDidChange(_:))
     }
-  }
-  
-  func orientationDidChange(_ notification: Notification) {
-    let deviceOrientation = UIDevice.current.orientation
     
-    let prevOrientation = lastKnownOrientation
-    setLastOrientation(deviceOrientation, defaultOrientation: nil)
-    
-    if prevOrientation != lastKnownOrientation {
-      //TODO: notify of orientation change??? (but mostly why bother...)
+    func setLastOrientation(_ deviceOrientation: UIDeviceOrientation, defaultOrientation: UIDeviceOrientation?) {
+        
+        // set last device orientation but only if it is recognized
+        switch deviceOrientation {
+        case .unknown, .faceUp, .faceDown:
+            lastKnownOrientation = defaultOrientation ?? lastKnownOrientation
+            break
+        default:
+            lastKnownOrientation = deviceOrientation
+        }
     }
-  }
-  
-  deinit {
-    UIDevice.current.endGeneratingDeviceOrientationNotifications()
-  }
+    
+    func orientationDidChange(_ notification: Notification) {
+        let deviceOrientation = UIDevice.current.orientation
+        
+        let prevOrientation = lastKnownOrientation
+        setLastOrientation(deviceOrientation, defaultOrientation: nil)
+        
+        if prevOrientation != lastKnownOrientation {
+            //TODO: notify of orientation change??? (but mostly why bother...)
+        }
+    }
+    
+    deinit {
+        UIDevice.current.endGeneratingDeviceOrientationNotifications()
+    }
 }
 
 protocol QrReaderResponses {
-  func surfaceReceived(buffer: CMSampleBuffer)
-  func qrReceived(code: String)
+    func surfaceReceived(buffer: CMSampleBuffer)
+    func qrReceived(code: String)
 }
 
 class QrReader: NSObject {
-  let targetWidth: Int
-  let targetHeight: Int
-  let textureHandler: TextureHandler
-  let isProcessing = Atomic<Bool>(false)
-  
-  var captureDevice: AVCaptureDevice!
-  var captureSession: AVCaptureSession!
-  var previewSize: CMVideoDimensions!
-  let barcodeDetector: VisionBarcodeDetector
-  let cameraPosition = AVCaptureDevice.Position.back
-  let qrCallback: (_:[[String: Any]]) -> Void
-  
-  init(targetWidth: Int, targetHeight: Int, textureHandler: TextureHandler, options: VisionBarcodeDetectorOptions, qrCallback: @escaping (_:[[String: Any]]) -> Void) {
-    self.targetWidth = targetWidth
-    self.targetHeight = targetHeight
-    self.textureHandler = textureHandler
-    self.qrCallback = qrCallback
+    let targetWidth: Int
+    let targetHeight: Int
+    let textureHandler: TextureHandler
+    let isProcessing = Atomic<Bool>(false)
+    var captureDevice: AVCaptureDevice!
+    var captureSession: AVCaptureSession!
+    var previewSize: CMVideoDimensions!
+    var barcodeDetector: VisionBarcodeDetector
+    var cameraPosition = AVCaptureDevice.Position.back
+    let qrCallback: (_:[[String: Any]]) -> Void
+    var input: AVCaptureInput!
+    var output: AVCaptureVideoDataOutput!
+    var isTorchOn = false
+    var zoomFactor = Zoom.zoom2x.rawValue
     
-    let vision = Vision.vision()
-    self.barcodeDetector = vision.barcodeDetector(options: options)
+    init(targetWidth: Int, targetHeight: Int, zoomFactor: Float, cameraPosition: Int, textureHandler: TextureHandler, options: VisionBarcodeDetectorOptions, qrCallback: @escaping (_:[[String: Any]]) -> Void) {
+        self.targetWidth = targetWidth
+        self.targetHeight = targetHeight
+        self.textureHandler = textureHandler
+        self.qrCallback = qrCallback
+        let vision = Vision.vision()
+        self.barcodeDetector = vision.barcodeDetector(options: options)
+        self.zoomFactor = zoomFactor
+        self.cameraPosition = cameraPosition == 1 ? AVCaptureDevice.Position.back : AVCaptureDevice.Position.front
+        
+        
+        super.init()
+        initCamera()
+    }
     
-    super.init()
-    
-    captureSession = AVCaptureSession()
-    
-    if #available(iOS 10.0, *) {
-      captureDevice = AVCaptureDevice.default(AVCaptureDevice.DeviceType.builtInWideAngleCamera, for: AVMediaType.video, position: cameraPosition)
-    } else {
-      for device in AVCaptureDevice.devices(for: AVMediaType.video) {
-        if device.position == cameraPosition {
-          captureDevice = device
-          break
+    func initCamera() {
+        captureSession = AVCaptureSession()
+        
+        if #available(iOS 10.0, *) {
+            captureDevice = AVCaptureDevice.default(AVCaptureDevice.DeviceType.builtInWideAngleCamera, for: AVMediaType.video, position: cameraPosition)
+        } else {
+            for device in AVCaptureDevice.devices(for: AVMediaType.video) {
+                if device.position == cameraPosition {
+                    captureDevice = device
+                    break
+                }
+            }
         }
-      }
+        
+        if captureDevice == nil {
+            captureDevice = AVCaptureDevice.default(for: AVMediaType.video)!
+        }
+        
+        // catch?
+        self.input = try! AVCaptureDeviceInput.init(device: captureDevice)
+        previewSize = CMVideoFormatDescriptionGetDimensions(captureDevice.activeFormat.formatDescription)
+        
+        self.output = AVCaptureVideoDataOutput()
+        self.output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        self.output.alwaysDiscardsLateVideoFrames = true
+        
+        let queue = DispatchQueue.global(qos: DispatchQoS.QoSClass.default)
+        self.output.setSampleBufferDelegate(self, queue: queue)
+        
+        captureSession.addInput(self.input)
+        captureSession.addOutput(self.output)
+        setZoomFactor(zoomFactor: self.zoomFactor)
     }
     
-    if captureDevice == nil {
-      captureDevice = AVCaptureDevice.default(for: AVMediaType.video)!
+    func start() {
+        captureSession.startRunning()
     }
     
-    // catch?
-    let input = try! AVCaptureDeviceInput.init(device: captureDevice)
-    previewSize = CMVideoFormatDescriptionGetDimensions(captureDevice.activeFormat.formatDescription)
+    func stop() {
+        captureSession.stopRunning()
+    }
     
-    let output = AVCaptureVideoDataOutput()
-    output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
-    output.alwaysDiscardsLateVideoFrames = true
+    func toggleTorch() {
+        if captureDevice.hasTorch {
+            try! captureDevice.lockForConfiguration()
+            if isTorchOn == false {
+                captureDevice.torchMode = .on
+                isTorchOn = true
+            } else {
+                captureDevice.torchMode = .off
+                isTorchOn = false
+            }
+            captureDevice.unlockForConfiguration()
+        }
+    }
     
-    let queue = DispatchQueue.global(qos: DispatchQoS.QoSClass.default)
-    output.setSampleBufferDelegate(self, queue: queue)
+    func getZoomFactor() -> Float {
+        return self.zoomFactor
+    }
     
-    captureSession.addInput(input)
-    captureSession.addOutput(output)
-  }
-  
-  func start() {
-    captureSession.startRunning()
-  }
-  
-  func stop() {
-    captureSession.stopRunning()
-  }
-  
+    func setZoomFactor(zoomFactor: Float) {
+        try! captureDevice.lockForConfiguration()
+        captureDevice.videoZoomFactor = CGFloat(floatToZoom(zoomValue: zoomFactor).rawValue)
+        self.zoomFactor = zoomFactor
+        captureDevice.unlockForConfiguration()
+    }
+    
+    func getCameraLensFacing() -> Int? {
+        switch cameraPosition {
+        case .front:
+            return 0
+        case .back:
+            return 1
+        default:
+            return nil
+        }
+    }
+    
+    func setCameraLensFacing(position: Int) {
+        switch position {
+        case 0:
+            cameraPosition = .front
+        case 1:
+            cameraPosition = .back
+        default:
+            cameraPosition = .back
+        }
+        reloadCamera()
+    }
+    
+    func reloadCamera() {
+        captureSession?.stopRunning()
+        captureSession?.removeInput(self.input)
+        captureSession?.removeOutput(self.output)
+        initCamera()
+        captureSession?.startRunning()
+    }
+    
+  func floatToZoom(zoomValue: Float) -> Zoom {
+        switch zoomValue {
+        case 1.0, 1:
+            return Zoom.zoom1x
+        case 2.0, 2:
+            return Zoom.zoom2x
+        case 4.0, 4:
+            return Zoom.zoom4x
+        default:
+            return Zoom.zoom2x
+        }
+    }
+    
 }
 
 extension QrReader: AVCaptureVideoDataOutputSampleBufferDelegate {
-  func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-    // runs on dispatch queue
-    
-    textureHandler.setImageBuffer(buffer: sampleBuffer)
-    let metadata = VisionImageMetadata()
-    metadata.orientation = imageOrientation(
-      deviceOrientation: UIDevice.current.orientation,
-      defaultOrientation: .portrait
-    )
-    
-    guard !isProcessing.swap(true) else {
-      return
-    }
-    
-    let image = VisionImage(buffer: sampleBuffer)
-    image.metadata = metadata
-    
-    DispatchQueue.global(qos: DispatchQoS.QoSClass.utility).async {
-      self.barcodeDetector.detect(in: image) { features, error in
-        self.isProcessing.value = false
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        // runs on dispatch queue
         
-        guard error == nil else {
-          if #available(iOS 10.0, *) {
-            os_log("Error decoding barcode %@", error!.localizedDescription)
-          } else {
-            // Fallback on earlier versions
-            NSLog("Error decoding barcode %@", error!.localizedDescription)
-          }
-          return
+        textureHandler.setImageBuffer(buffer: sampleBuffer)
+        let metadata = VisionImageMetadata()
+        metadata.orientation = imageOrientation(
+            deviceOrientation: UIDevice.current.orientation,
+            defaultOrientation: .portrait
+        )
+        
+        guard !isProcessing.swap(true) else {
+            return
         }
         
-        guard let features = features else {
-          return
+        let image = VisionImage(buffer: sampleBuffer)
+        image.metadata = metadata
+        
+        DispatchQueue.global(qos: DispatchQoS.QoSClass.utility).async {
+            self.barcodeDetector.detect(in: image) { features, error in
+                self.isProcessing.value = false
+                
+                guard error == nil else {
+                    if #available(iOS 10.0, *) {
+                        os_log("Error decoding barcode %@", error!.localizedDescription)
+                    } else {
+                        // Fallback on earlier versions
+                        NSLog("Error decoding barcode %@", error!.localizedDescription)
+                    }
+                    return
+                }
+                
+                guard let features = features else {
+                    return
+                }
+                var barcodes = [[String: Any]]()
+                
+                for feature in features {
+                    var barcodeMap = [String: Any]()
+                    
+                    barcodeMap["rawValue"] = feature.rawValue
+                    barcodeMap["left"] = feature.frame.origin.x
+                    barcodeMap["top"] = feature.frame.origin.y
+                    barcodeMap["width"] = feature.frame.width
+                    barcodeMap["height"] = feature.frame.height
+                    
+                    barcodes.append(barcodeMap)
+                }
+                self.qrCallback(barcodes)
+            }
         }
-        var barcodes = [[String: Any]]()
-              
-        for feature in features {
-        var barcodeMap = [String: Any]()
-            
-            barcodeMap["rawValue"] = feature.rawValue
-            barcodeMap["left"] = feature.frame.origin.x
-            barcodeMap["top"] = feature.frame.origin.y
-            barcodeMap["width"] = feature.frame.width
-            barcodeMap["height"] = feature.frame.height
-          
-            barcodes.append(barcodeMap)
+    }
+    
+    func imageOrientation(
+        deviceOrientation: UIDeviceOrientation,
+        defaultOrientation: UIDeviceOrientation
+    ) -> VisionDetectorImageOrientation {
+        switch deviceOrientation {
+        case .portrait:
+            return cameraPosition == .front ? .leftTop : .rightTop
+        case .landscapeLeft:
+            return cameraPosition == .front ? .bottomLeft : .topLeft
+        case .portraitUpsideDown:
+            return cameraPosition == .front ? .rightBottom : .leftBottom
+        case .landscapeRight:
+            return cameraPosition == .front ? .topRight : .bottomRight
+        case .faceDown, .faceUp, .unknown:
+            fallthrough
+        @unknown default:
+            return imageOrientation(deviceOrientation: defaultOrientation, defaultOrientation: .portrait)
         }
-        self.qrCallback(barcodes)
-      }
     }
-  }
-  
-  func imageOrientation(
-    deviceOrientation: UIDeviceOrientation,
-    defaultOrientation: UIDeviceOrientation
-  ) -> VisionDetectorImageOrientation {
-    switch deviceOrientation {
-    case .portrait:
-      return cameraPosition == .front ? .leftTop : .rightTop
-    case .landscapeLeft:
-      return cameraPosition == .front ? .bottomLeft : .topLeft
-    case .portraitUpsideDown:
-      return cameraPosition == .front ? .rightBottom : .leftBottom
-    case .landscapeRight:
-      return cameraPosition == .front ? .topRight : .bottomRight
-    case .faceDown, .faceUp, .unknown:
-      fallthrough
-    @unknown default:
-      return imageOrientation(deviceOrientation: defaultOrientation, defaultOrientation: .portrait)
-    }
-  }
+}
+
+enum Zoom: Float {
+    case zoom1x = 1.0
+    case zoom2x = 2.0
+    case zoom4x = 4.0
 }
