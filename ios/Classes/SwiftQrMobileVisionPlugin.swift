@@ -59,35 +59,41 @@ public class SwiftQrMobileVisionPlugin: NSObject, FlutterPlugin {
             //      let heartBeatTimeout = argReader.int(key: "heartBeatTimeout")
             
             guard let targetWidth = argReader.int(key: "targetWidth"),
-                let targetHeight = argReader.int(key: "targetHeight"),
-                let zoomFactor = argReader.float(key: "zoomFactor"),
-                let cameraPosition = argReader.int(key: "cameraLensFacing"),
-                let formatStrings = argReader.stringArray(key: "formats") else {
-                    result(FlutterError(code: "INVALID_ARGUMENT", message: "Missing a required argument", details: "Expecting targetWidth, targetHeight, formats, and optionally heartbeatTimeout"))
-                    return
+                  let targetHeight = argReader.int(key: "targetHeight"),
+                  let zoomFactor = argReader.float(key: "zoomFactor"),
+                  let cameraPosition = argReader.int(key: "cameraLensFacing"),
+                  let formatStrings = argReader.stringArray(key: "formats") else {
+                result(FlutterError(code: "INVALID_ARGUMENT", message: "Missing a required argument", details: "Expecting targetWidth, targetHeight, formats, and optionally heartbeatTimeout"))
+                return
             }
             
             let options = VisionBarcodeDetectorOptions(formatStrings: formatStrings)
             
             let texture = TextureHandler(registry: textureRegistry)
             
-            reader = QrReader(
-                targetWidth: targetWidth,
-                targetHeight: targetHeight,
-                zoomFactor: zoomFactor,
-                cameraPosition: cameraPosition,
-                textureHandler: texture,
-                options: options) { [unowned self] qr in
+            
+            do {
+                reader = try QrReader(
+                    targetWidth: targetWidth,
+                    targetHeight: targetHeight,
+                    zoomFactor: zoomFactor,
+                    cameraPosition: cameraPosition,
+                    textureHandler: texture,
+                    options: options) { [unowned self] qr in
                     self.channel.invokeMethod("qrRead", arguments: qr)
+                }
+                
+                reader!.start();
+                result([
+                    "surfaceWidth": reader!.previewSize.height,
+                    "surfaceHeight": reader!.previewSize.width,
+                    "surfaceOrientation": 0, //TODO: check on iPAD
+                    "textureId": texture.textureId!
+                ])
+            } catch {
+                result(FlutterError(code: "PERMISSION_DENIED", message: "QrReader initialization threw an exception", details: error.localizedDescription))
             }
             
-            reader!.start();
-            result([
-                "surfaceWidth": reader!.previewSize.height,
-                "surfaceHeight": reader!.previewSize.width,
-                "surfaceOrientation": 0, //TODO: check on iPAD
-                "textureId": texture.textureId!
-            ])
         case "stop":
             reader?.stop();
             reader = nil
@@ -95,11 +101,16 @@ public class SwiftQrMobileVisionPlugin: NSObject, FlutterPlugin {
         case "setCameraLensFacing":
             guard
                 let cameraLensFacing = (call.arguments as? NSNumber)?.intValue
-                else {
-                    result(FlutterError(code: "INVALID_ARGUMENT", message: "Missing a required argument", details: "Expecting setCameraLensFacing"))
-                    return
+            else {
+                result(FlutterError(code: "INVALID_ARGUMENT", message: "Missing a required argument", details: "Expecting setCameraLensFacing"))
+                return
             }
-            reader!.setCameraLensFacing(position: cameraLensFacing)
+            do {
+                try reader!.setCameraLensFacing(position: cameraLensFacing)
+            } catch  {
+                result(FlutterError(code: "PERMISSION_DENIED", message: "QrReader initialization threw an exception", details: error.localizedDescription))
+            }
+            
             result(nil)
         case "getCameraLensFacing":
             if reader != nil {
@@ -127,9 +138,9 @@ public class SwiftQrMobileVisionPlugin: NSObject, FlutterPlugin {
         case "setZoomFactor":
             guard
                 let zoomFactor = (call.arguments as? NSNumber)?.floatValue
-                else {
-                    result(FlutterError(code: "INVALID_ARGUMENT", message: "Missing a required argument", details: "Expecting setZoomFactor"))
-                    return
+            else {
+                result(FlutterError(code: "INVALID_ARGUMENT", message: "Missing a required argument", details: "Expecting setZoomFactor"))
+                return
             }
             reader?.setZoomFactor(zoomFactor: zoomFactor)
             result(nil)
