@@ -111,7 +111,7 @@ class QrReader: NSObject {
     var isTorchOn = false
     var zoomFactor = Zoom.zoom2x.rawValue
     
-    init(targetWidth: Int, targetHeight: Int, zoomFactor: Float, cameraPosition: Int, textureHandler: TextureHandler, options: VisionBarcodeDetectorOptions, qrCallback: @escaping (_:[[String: Any]]) -> Void) {
+    init(targetWidth: Int, targetHeight: Int, zoomFactor: Float, cameraPosition: Int, textureHandler: TextureHandler, options: VisionBarcodeDetectorOptions, qrCallback: @escaping (_:[[String: Any]]) -> Void) throws {
         self.targetWidth = targetWidth
         self.targetHeight = targetHeight
         self.textureHandler = textureHandler
@@ -121,12 +121,11 @@ class QrReader: NSObject {
         self.zoomFactor = zoomFactor
         self.cameraPosition = cameraPosition == 1 ? AVCaptureDevice.Position.back : AVCaptureDevice.Position.front
         
-        
         super.init()
-        initCamera()
+       try initCamera()
     }
     
-    func initCamera() {
+    func initCamera() throws {
         captureSession = AVCaptureSession()
         
         if #available(iOS 10.0, *) {
@@ -144,8 +143,7 @@ class QrReader: NSObject {
             captureDevice = AVCaptureDevice.default(for: AVMediaType.video)!
         }
         
-        // catch?
-        self.input = try! AVCaptureDeviceInput.init(device: captureDevice)
+        self.input = try AVCaptureDeviceInput.init(device: captureDevice)
         previewSize = CMVideoFormatDescriptionGetDimensions(captureDevice.activeFormat.formatDescription)
         
         self.output = AVCaptureVideoDataOutput()
@@ -204,7 +202,7 @@ class QrReader: NSObject {
         }
     }
     
-    func setCameraLensFacing(position: Int) {
+    func setCameraLensFacing(position: Int) throws {
         switch position {
         case 0:
             cameraPosition = .front
@@ -213,14 +211,14 @@ class QrReader: NSObject {
         default:
             cameraPosition = .back
         }
-        reloadCamera()
+       try reloadCamera()
     }
     
-    func reloadCamera() {
+    func reloadCamera() throws {
         captureSession?.stopRunning()
         captureSession?.removeInput(self.input)
         captureSession?.removeOutput(self.output)
-        initCamera()
+        try initCamera()
         captureSession?.startRunning()
     }
     
