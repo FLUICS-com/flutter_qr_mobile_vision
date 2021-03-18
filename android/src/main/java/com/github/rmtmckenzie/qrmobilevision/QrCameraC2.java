@@ -27,12 +27,14 @@ import androidx.annotation.RequiresApi;
 import com.google.android.gms.vision.Frame;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_AUTO;
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
 import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO;
+import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_EDOF;
+import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_MACRO;
+import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_OFF;
 import static android.hardware.camera2.CameraMetadata.LENS_FACING_BACK;
 import static android.hardware.camera2.CameraMetadata.LENS_FACING_FRONT;
 import static com.github.rmtmckenzie.qrmobilevision.CameraZoom.ZOOM_1X;
@@ -262,30 +264,21 @@ class QrCameraC2 implements QrCamera {
         }
     }
 
-    private Integer afMode(CameraCharacteristics cameraCharacteristics) {
-
-        int[] afModes = cameraCharacteristics.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES);
-
-        if (afModes == null) {
-            return null;
-        }
-
-        HashSet<Integer> modes = new HashSet<>(afModes.length * 2);
-        for (int afMode : afModes) {
-            modes.add(afMode);
-        }
-
-        if (modes.contains(CONTROL_AF_MODE_CONTINUOUS_VIDEO)) {
-            return CONTROL_AF_MODE_CONTINUOUS_VIDEO;
-        } else if (modes.contains(CONTROL_AF_MODE_CONTINUOUS_PICTURE)) {
-            return CONTROL_AF_MODE_CONTINUOUS_PICTURE;
-        } else if (modes.contains(CONTROL_AF_MODE_AUTO)) {
-            return CONTROL_AF_MODE_AUTO;
+    private void initAfMode() {
+        int[] modes = cameraCharacteristics.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES);
+        // Auto focus is not supported
+        if (modes == null
+            || modes.length == 0
+            || (modes.length == 1 && modes[0] == CONTROL_AF_MODE_OFF)) {
+            previewBuilder.set(
+                CaptureRequest.CONTROL_AF_MODE, CONTROL_AF_MODE_OFF);
+            Log.w(TAG, "Camera af mode off");
         } else {
-            return null;
+            previewBuilder.set(
+                CaptureRequest.CONTROL_AF_MODE,
+                CONTROL_AF_MODE_CONTINUOUS_VIDEO);
         }
     }
-
 
     private void startCamera() {
         List<Surface> list = new ArrayList<>();
@@ -317,22 +310,9 @@ class QrCameraC2 implements QrCamera {
             previewBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             previewBuilder.addTarget(list.get(0));
             previewBuilder.addTarget(list.get(1));
-
-            Integer afMode = afMode(cameraCharacteristics);
-
             previewBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
             cameraZoom.setZoom(previewBuilder, zoomFactor);
-
-            if (afMode != null) {
-                previewBuilder.set(CaptureRequest.CONTROL_AF_MODE, afMode);
-                Log.i(TAG, "Setting af mode to: " + afMode);
-                if (afMode == CONTROL_AF_MODE_AUTO) {
-                    previewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
-                } else {
-                    previewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
-                }
-            }
-
+            initAfMode();
         } catch (java.lang.Exception e) {
             e.printStackTrace();
             return;
