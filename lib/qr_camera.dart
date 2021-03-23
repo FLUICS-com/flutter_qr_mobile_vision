@@ -290,6 +290,7 @@ class Preview extends StatelessWidget {
 
         return FittedBox(
           fit: fit,
+          clipBehavior: Clip.hardEdge,
           child: RotatedBox(
             quarterTurns: rotationCompensation,
             child: CameraPreview(
