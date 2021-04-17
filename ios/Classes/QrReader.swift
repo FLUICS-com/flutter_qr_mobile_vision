@@ -1,12 +1,13 @@
 import Foundation
 import AVFoundation
-import FirebaseMLVision
+import MLKitVision
+import MLKitBarcodeScanning
 import os.log
 
 
-extension VisionBarcodeDetectorOptions {
+extension BarcodeScannerOptions {
     convenience init(formatStrings: [String]) {
-        let formats = formatStrings.map { (format) -> VisionBarcodeFormat? in
+        let formats = formatStrings.map { (format) -> BarcodeFormat? in
             switch format  {
             case "ALL_FORMATS":
                 return .all
@@ -40,7 +41,7 @@ extension VisionBarcodeDetectorOptions {
                 // ignore any unknown values
                 return nil
             }
-        }.reduce([]) { (result, format) -> VisionBarcodeFormat in
+        }.reduce([]) { (result, format) -> BarcodeFormat in
             guard let format = format else {
                 return result
             }
@@ -95,6 +96,10 @@ protocol QrReaderResponses {
     func qrReceived(code: String)
 }
 
+enum QrReaderError: Error {
+    case noCamera
+}
+
 class QrReader: NSObject {
     let targetWidth: Int
     let targetHeight: Int
@@ -103,7 +108,7 @@ class QrReader: NSObject {
     var captureDevice: AVCaptureDevice!
     var captureSession: AVCaptureSession!
     var previewSize: CMVideoDimensions!
-    var barcodeDetector: VisionBarcodeDetector
+    var barcodeDetector: BarcodeScanner
     var cameraPosition = AVCaptureDevice.Position.back
     let qrCallback: (_:[[String: Any]]) -> Void
     var input: AVCaptureInput!
@@ -111,18 +116,17 @@ class QrReader: NSObject {
     var isTorchOn = false
     var zoomFactor = Zoom.zoom2x.rawValue
     
-    init(targetWidth: Int, targetHeight: Int, zoomFactor: Float, cameraPosition: Int, textureHandler: TextureHandler, options: VisionBarcodeDetectorOptions, qrCallback: @escaping (_:[[String: Any]]) -> Void) throws {
+    init(targetWidth: Int, targetHeight: Int, zoomFactor: Float, cameraPosition: Int, textureHandler: TextureHandler, options: BarcodeScannerOptions, qrCallback: @escaping (_:[[String: Any]]) -> Void) throws {
         self.targetWidth = targetWidth
         self.targetHeight = targetHeight
         self.textureHandler = textureHandler
         self.qrCallback = qrCallback
-        let vision = Vision.vision()
-        self.barcodeDetector = vision.barcodeDetector(options: options)
+        self.barcodeDetector = BarcodeScanner.barcodeScanner()
         self.zoomFactor = zoomFactor
         self.cameraPosition = cameraPosition == 1 ? AVCaptureDevice.Position.back : AVCaptureDevice.Position.front
         
         super.init()
-       try initCamera()
+        try initCamera()
     }
     
     func initCamera() throws {
@@ -140,7 +144,11 @@ class QrReader: NSObject {
         }
         
         if captureDevice == nil {
-            captureDevice = AVCaptureDevice.default(for: AVMediaType.video)!
+            captureDevice = AVCaptureDevice.default(for: AVMediaType.video)
+            
+            guard captureDevice != nil else {
+                throw QrReaderError.noCamera
+            }
         }
         
         self.input = try AVCaptureDeviceInput.init(device: captureDevice)
@@ -211,7 +219,7 @@ class QrReader: NSObject {
         default:
             cameraPosition = .back
         }
-       try reloadCamera()
+        try reloadCamera()
     }
     
     func reloadCamera() throws {
@@ -222,7 +230,7 @@ class QrReader: NSObject {
         captureSession?.startRunning()
     }
     
-  func floatToZoom(zoomValue: Float) -> Zoom {
+    func floatToZoom(zoomValue: Float) -> Zoom {
         switch zoomValue {
         case 1.0, 1:
             return Zoom.zoom1x
@@ -242,21 +250,19 @@ extension QrReader: AVCaptureVideoDataOutputSampleBufferDelegate {
         // runs on dispatch queue
         
         textureHandler.setImageBuffer(buffer: sampleBuffer)
-        let metadata = VisionImageMetadata()
-        metadata.orientation = imageOrientation(
-            deviceOrientation: UIDevice.current.orientation,
-            defaultOrientation: .portrait
-        )
         
         guard !isProcessing.swap(true) else {
             return
         }
         
         let image = VisionImage(buffer: sampleBuffer)
-        image.metadata = metadata
+        image.orientation = imageOrientation(
+            deviceOrientation: UIDevice.current.orientation,
+            defaultOrientation: .portrait
+        )
         
         DispatchQueue.global(qos: DispatchQoS.QoSClass.utility).async {
-            self.barcodeDetector.detect(in: image) { features, error in
+            self.barcodeDetector.process(image) { features, error in
                 self.isProcessing.value = false
                 
                 guard error == nil else {
@@ -293,18 +299,18 @@ extension QrReader: AVCaptureVideoDataOutputSampleBufferDelegate {
     func imageOrientation(
         deviceOrientation: UIDeviceOrientation,
         defaultOrientation: UIDeviceOrientation
-    ) -> VisionDetectorImageOrientation {
+    ) -> UIImage.Orientation {
         switch deviceOrientation {
         case .portrait:
-            return cameraPosition == .front ? .leftTop : .rightTop
+            return cameraPosition == .front ? .leftMirrored : .right
         case .landscapeLeft:
-            return cameraPosition == .front ? .bottomLeft : .topLeft
+            return cameraPosition == .front ? .downMirrored : .up
         case .portraitUpsideDown:
-            return cameraPosition == .front ? .rightBottom : .leftBottom
+            return cameraPosition == .front ? .rightMirrored : .left
         case .landscapeRight:
-            return cameraPosition == .front ? .topRight : .bottomRight
+            return cameraPosition == .front ? .upMirrored : .down
         case .faceDown, .faceUp, .unknown:
-            fallthrough
+            return .up
         @unknown default:
             return imageOrientation(deviceOrientation: defaultOrientation, defaultOrientation: .portrait)
         }
