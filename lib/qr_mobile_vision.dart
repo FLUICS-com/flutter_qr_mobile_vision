@@ -1,18 +1,16 @@
 import 'dart:async';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_mobile_vision/barcode.dart';
 import 'package:qr_mobile_vision/camera_config.dart';
 
 class PreviewDetails {
-  num width;
-  num height;
-  num sensorOrientation;
-  int textureId;
+  final num? width;
+  final num? height;
+  final num? sensorOrientation;
+  final int? textureId;
 
-  PreviewDetails(
+  const PreviewDetails(
     this.width,
     this.height,
     this.sensorOrientation,
@@ -48,13 +46,13 @@ class QrMobileVision {
 
   //Set target size before starting
   static Future<PreviewDetails> start({
-    @required int width,
-    @required int height,
-    int scaleResolution,
-    @required int cameraLensDirectionValue,
-    @required double cameraZoomFactorValue,
-    @required QRCodeHandler qrCodeHandler,
-    List<BarcodeFormats> formats = _defaultBarcodeFormats,
+    required int width,
+    required int height,
+    required int scaleResolution,
+    required int cameraLensDirectionValue,
+    required double cameraZoomFactorValue,
+    required QRCodeHandler qrCodeHandler,
+    List<BarcodeFormats>? formats = _defaultBarcodeFormats,
   }) async {
     width = width * scaleResolution;
     height = height * scaleResolution;
@@ -78,10 +76,10 @@ class QrMobileVision {
     // invokeMethod returns Map<dynamic,...> in dart 2.0
     assert(details is Map<dynamic, dynamic>);
 
-    int textureId = details["textureId"];
-    num orientation = details["surfaceOrientation"];
-    num surfaceHeight = details["surfaceHeight"];
-    num surfaceWidth = details["surfaceWidth"];
+    int? textureId = details["textureId"];
+    num? orientation = details["surfaceOrientation"];
+    num? surfaceHeight = details["surfaceHeight"];
+    num? surfaceWidth = details["surfaceWidth"];
 
     return new PreviewDetails(
         surfaceWidth, surfaceHeight, orientation, textureId);
@@ -130,11 +128,11 @@ class QrMobileVision {
         .catchError(print);
   }
 
-  static Future<CameraZoomFactor> getZoomFactor() async {
-    final double zoomValue = await _channel.invokeMethod('getZoomFactor');
+  static Future<CameraZoomFactor?> getZoomFactor() async {
+    final double? zoomValue = await _channel.invokeMethod('getZoomFactor');
     if (zoomValue == null) return null;
 
-    CameraZoomFactor zoomFactor;
+    CameraZoomFactor? zoomFactor;
     if (zoomValue == 1.0) {
       zoomFactor = CameraZoomFactor.zoom_1x;
     } else if (zoomValue == 2.0) {
@@ -145,19 +143,19 @@ class QrMobileVision {
     return zoomFactor;
   }
 
-  static Future<CameraLensDirection> getCameraLensFacing() async {
-    final int cameraLensFacing =
+  static Future<CameraLensDirection?> getCameraLensFacing() async {
+    final int? cameraLensFacing =
         await _channel.invokeMethod('getCameraLensFacing');
     if (cameraLensFacing == null) return null;
     return CameraLensDirection.values.elementAt(cameraLensFacing);
   }
 
-  static Future<Size> getTextureSize() async {
+  static Future<Size?> getTextureSize() async {
     final textureSize = await _channel.invokeMethod('getTextureSize');
     if (textureSize != null && textureSize is Map) {
       final Map<String, int> size = textureSize.cast<String, int>();
       return Size(
-          size['surfaceWidth'].toDouble(), size['surfaceHeight'].toDouble());
+          size['surfaceWidth']!.toDouble(), size['surfaceHeight']!.toDouble());
     }
     return null;
   }
@@ -166,8 +164,11 @@ class QrMobileVision {
     return _channel.invokeMethod('heartbeat').catchError(print);
   }
 
-  static Future<List<List<int>>> getSupportedSizes() {
-    return _channel.invokeMethod('getSupportedSizes').catchError(print);
+  static Future<List<List<int>>?> getSupportedSizes() {
+    return _channel
+        .invokeMethod('getSupportedSizes')
+        .catchError(print)
+        .then((value) => value as List<List<int>>?);
   }
 }
 
@@ -185,7 +186,7 @@ class QrChannelReader {
             final List<Barcode> barcodes = (call.arguments as List)
                 .map((barcode) => Barcode(barcode))
                 .toList();
-            qrCodeHandler(barcodes);
+            qrCodeHandler!(barcodes);
           }
           break;
         default:
@@ -195,10 +196,10 @@ class QrChannelReader {
     });
   }
 
-  void setQrCodeHandler(QRCodeHandler qrch) {
+  void setQrCodeHandler(QRCodeHandler? qrch) {
     this.qrCodeHandler = qrch;
   }
 
   MethodChannel channel;
-  QRCodeHandler qrCodeHandler;
+  QRCodeHandler? qrCodeHandler;
 }
