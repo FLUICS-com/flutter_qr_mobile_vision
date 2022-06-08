@@ -1,9 +1,9 @@
 import 'dart:ui';
 
 class Barcode {
-  final String rawValue;
-  final List<Offset> _cornerPoints;
-  final Rect boundingBox;
+  final String? rawValue;
+  final List<Offset>? _cornerPoints;
+  final Rect? boundingBox;
 
   Barcode(Map<dynamic, dynamic> _data)
       : boundingBox = _data['left'] != null
@@ -24,5 +24,5 @@ class Barcode {
                     ))
                 .toList();
 
-  List<Offset> get cornerPoints => List<Offset>.from(_cornerPoints);
+  List<Offset> get cornerPoints => List<Offset>.from(_cornerPoints!);
 }
