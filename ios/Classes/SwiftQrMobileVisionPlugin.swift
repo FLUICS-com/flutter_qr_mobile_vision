@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
-import FirebaseMLVision
+import MLKitVision
+import MLKitBarcodeScanning
 
 class MapArgumentReader {
     
@@ -66,8 +67,7 @@ public class SwiftQrMobileVisionPlugin: NSObject, FlutterPlugin {
                     result(FlutterError(code: "INVALID_ARGUMENT", message: "Missing a required argument", details: "Expecting targetWidth, targetHeight, formats, and optionally heartbeatTimeout"))
                     return
             }
-            
-            let options = VisionBarcodeDetectorOptions(formatStrings: formatStrings)
+            let options = BarcodeScannerOptions(formatStrings: formatStrings)
             
             let texture = TextureHandler(registry: textureRegistry)
             
