@@ -286,16 +286,18 @@ class Preview extends StatelessWidget {
           double frameHeight = width;
           double frameWidth = height;
 
-          return FittedBox(
-            fit: fit,
-            child: RotatedBox(
-              quarterTurns: rotationCompensation,
-              child: CameraPreview(
-                textureId: textureId,
-                customPainter: customPainter,
-                width: frameWidth,
-                height: frameHeight,
-                isFlipCameraPreview: isFlipCameraPreview,
+          return ClipRect(
+            child: FittedBox(
+              fit: fit,
+              child: RotatedBox(
+                quarterTurns: rotationCompensation,
+                child: CameraPreview(
+                  textureId: textureId,
+                  customPainter: customPainter,
+                  width: frameWidth,
+                  height: frameHeight,
+                  isFlipCameraPreview: isFlipCameraPreview,
+                ),
               ),
             ),
           );
