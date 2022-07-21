@@ -228,7 +228,7 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
   }
 }
 
-class Preview extends StatelessWidget {
+class Preview extends StatefulWidget {
   final double targetWidth, targetHeight;
   final BoxFit fit;
   final CustomPainter? customPainter;
@@ -245,65 +245,89 @@ class Preview extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      print(constraints);
-      return NativeDeviceOrientationReader(
-        builder: (context) {
-          final double width = previewDetails.width!.toDouble();
-          final double height = previewDetails.height!.toDouble();
-          final int? textureId = previewDetails.textureId;
-          final int? sensorOrientation =
-              previewDetails.sensorOrientation as int?;
-          final nativeOrientation =
-              NativeDeviceOrientationReader.orientation(context);
+  State<Preview> createState() => _PreviewState();
+}
 
-          int nativeRotation = 0;
-          switch (nativeOrientation) {
-            case NativeDeviceOrientation.portraitUp:
-              nativeRotation = 0;
-              break;
-            case NativeDeviceOrientation.landscapeRight:
-              nativeRotation = 90;
-              break;
-            case NativeDeviceOrientation.portraitDown:
-              nativeRotation = 180;
-              break;
-            case NativeDeviceOrientation.landscapeLeft:
-              nativeRotation = 270;
-              break;
-            case NativeDeviceOrientation.unknown:
-            default:
-              break;
-          }
+class _PreviewState extends State<Preview> {
+  late NativeDeviceOrientationCommunicator _nativeDeviceOrientationCommunicator;
+  late NativeDeviceOrientation _nativeOrientation;
+  late StreamSubscription<NativeDeviceOrientation>
+      _nativeOrientationSubscription;
 
-          print(
-              "Native orientation: $nativeRotation, sensorOrientation: $sensorOrientation");
+  @override
+  void initState() {
+    _nativeOrientation = NativeDeviceOrientation.portraitUp;
+    _nativeDeviceOrientationCommunicator =
+        NativeDeviceOrientationCommunicator();
+    _nativeOrientationSubscription = _nativeDeviceOrientationCommunicator
+        .onOrientationChanged()
+        .listen(_nativeOrientationListener);
+    super.initState();
+  }
 
-          int rotationCompensation =
-              ((nativeRotation - sensorOrientation! + 450) % 360) ~/ 90;
-
-          double frameHeight = width;
-          double frameWidth = height;
-
-          return ClipRect(
-            child: FittedBox(
-              fit: fit,
-              child: RotatedBox(
-                quarterTurns: rotationCompensation,
-                child: CameraPreview(
-                  textureId: textureId,
-                  customPainter: customPainter,
-                  width: frameWidth,
-                  height: frameHeight,
-                  isFlipCameraPreview: isFlipCameraPreview,
-                ),
-              ),
-            ),
-          );
-        },
-      );
+  void _nativeOrientationListener(NativeDeviceOrientation value) {
+    setState(() {
+      _nativeOrientation = value;
     });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double width = widget.previewDetails.width!.toDouble();
+    final double height = widget.previewDetails.height!.toDouble();
+    final int? textureId = widget.previewDetails.textureId;
+    final int? sensorOrientation =
+        widget.previewDetails.sensorOrientation as int?;
+
+    int nativeRotation = 0;
+    switch (_nativeOrientation) {
+      case NativeDeviceOrientation.portraitUp:
+        nativeRotation = 0;
+        break;
+      case NativeDeviceOrientation.landscapeRight:
+        nativeRotation = 90;
+        break;
+      case NativeDeviceOrientation.portraitDown:
+        nativeRotation = 180;
+        break;
+      case NativeDeviceOrientation.landscapeLeft:
+        nativeRotation = 270;
+        break;
+      case NativeDeviceOrientation.unknown:
+      default:
+        break;
+    }
+
+    print(
+        "Native orientation: $nativeRotation, sensorOrientation: $sensorOrientation");
+
+    int rotationCompensation =
+        ((nativeRotation - sensorOrientation! + 450) % 360) ~/ 90;
+
+    double frameHeight = width;
+    double frameWidth = height;
+
+    return ClipRect(
+      child: FittedBox(
+        fit: widget.fit,
+        child: RotatedBox(
+          quarterTurns: rotationCompensation,
+          child: CameraPreview(
+            textureId: textureId,
+            customPainter: widget.customPainter,
+            width: frameWidth,
+            height: frameHeight,
+            isFlipCameraPreview: widget.isFlipCameraPreview,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nativeOrientationSubscription.cancel();
+    super.dispose();
   }
 }
 

@@ -117,11 +117,10 @@ class Camera extends StatelessWidget {
       padding: const EdgeInsets.all(8.0),
       child: SizedBox(
         width: 400,
-        height: 400,
+        height: 200,
         child: QrCamera(
           key: key,
           customPainter: customPainter,
-          fit: BoxFit.contain,
           scaleResolution: 2,
           onError: (context, error) => Text(
             error.toString(),
