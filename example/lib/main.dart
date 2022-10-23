@@ -29,6 +29,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  bool isShow = false;
   String? qr;
   CameraStatus camState = CameraStatus.active;
   late Offset position;
@@ -77,16 +78,26 @@ class _MyAppState extends State<MyApp> {
                   QrMobileVision.setZoomFactor(CameraZoomFactor.zoom_2x);
                 },
               ),
-              Camera(
-                  qrCodeCallback: (List<Barcode> code) {
-                    setState(() {
-                      barcodes = code;
-                    });
-                  },
-                  customPainter: _buildCustomPainter())
+              isShow
+                  ? Camera(
+                      qrCodeCallback: (List<Barcode> code) {
+                        setState(() {
+                          barcodes = code;
+                        });
+                      },
+                      customPainter: _buildCustomPainter())
+                  : SizedBox.shrink(),
             ],
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          setState(() {
+            isShow = !isShow;
+          });
+        },
+        child: Icon(Icons.camera),
       ),
     );
   }

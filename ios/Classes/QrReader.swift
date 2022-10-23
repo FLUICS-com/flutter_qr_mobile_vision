@@ -99,10 +99,12 @@ protocol QrReaderResponses {
 class QrReader: NSObject {
     let targetWidth: Int
     let targetHeight: Int
-    let textureHandler: TextureHandler
+    let textureRegistry: FlutterTextureRegistry
     let isProcessing = Atomic<Bool>(false)
     var captureDevice: AVCaptureDevice!
     var captureSession: AVCaptureSession!
+    var textureId: Int64!
+    var pixelBuffer : CVPixelBuffer?
     var previewSize: CMVideoDimensions!
     var barcodeDetector: BarcodeScanner
     var cameraPosition = AVCaptureDevice.Position.back
@@ -112,10 +114,10 @@ class QrReader: NSObject {
     var isTorchOn = false
     var zoomFactor = Zoom.zoom2x.rawValue
     
-    init(targetWidth: Int, targetHeight: Int, zoomFactor: Float, cameraPosition: Int, textureHandler: TextureHandler, options: BarcodeScannerOptions, qrCallback: @escaping (_:[[String: Any]]) -> Void) {
+    init(targetWidth: Int, targetHeight: Int, zoomFactor: Float, cameraPosition: Int, textureRegistry: FlutterTextureRegistry, options: BarcodeScannerOptions, qrCallback: @escaping (_:[[String: Any]]) -> Void) {
         self.targetWidth = targetWidth
         self.targetHeight = targetHeight
-        self.textureHandler = textureHandler
+        self.textureRegistry = textureRegistry
         self.qrCallback = qrCallback
         self.barcodeDetector = BarcodeScanner.barcodeScanner(options: options)
         self.zoomFactor = zoomFactor
@@ -162,10 +164,14 @@ class QrReader: NSObject {
     
     func start() {
         captureSession.startRunning()
+        self.textureId = textureRegistry.register(self)
     }
     
     func stop() {
         captureSession.stopRunning()
+        pixelBuffer = nil
+        textureRegistry.unregisterTexture(textureId)
+        textureId = nil
     }
     
     func toggleTorch() {
@@ -224,7 +230,7 @@ class QrReader: NSObject {
         captureSession?.startRunning()
     }
     
-  func floatToZoom(zoomValue: Float) -> Zoom {
+    func floatToZoom(zoomValue: Float) -> Zoom {
         switch zoomValue {
         case 1.0, 1:
             return Zoom.zoom1x
@@ -239,20 +245,31 @@ class QrReader: NSObject {
     
 }
 
+extension QrReader : FlutterTexture {
+    func copyPixelBuffer() -> Unmanaged<CVPixelBuffer>? {
+        if(pixelBuffer == nil){
+            return nil
+        }
+        return  .passRetained(pixelBuffer!)
+    }
+}
+
 extension QrReader: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         // runs on dispatch queue
         
-        textureHandler.setImageBuffer(buffer: sampleBuffer)
+        pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)!
+        textureRegistry.textureFrameAvailable(self.textureId)
+        
+        guard !isProcessing.swap(true) else {
+            return
+        }
+        
         let image = VisionImage(buffer: sampleBuffer)
         image.orientation = imageOrientation(
             deviceOrientation: UIDevice.current.orientation,
             defaultOrientation: .portrait
         )
-        
-        guard !isProcessing.swap(true) else {
-            return
-        }
         
         DispatchQueue.global(qos: DispatchQoS.QoSClass.utility).async {
             self.barcodeDetector.process(image) { features, error in
@@ -268,7 +285,7 @@ extension QrReader: AVCaptureVideoDataOutputSampleBufferDelegate {
                     return
                 }
                 
-                guard let features = features else {
+                guard let features = features, !features.isEmpty else {
                     return
                 }
                 var barcodes = [[String: Any]]()
@@ -289,25 +306,25 @@ extension QrReader: AVCaptureVideoDataOutputSampleBufferDelegate {
         }
     }
     
-  func imageOrientation(
-    deviceOrientation: UIDeviceOrientation,
-    defaultOrientation: UIDeviceOrientation
-  ) -> UIImage.Orientation {
-    switch deviceOrientation {
-    case .portrait:
-      return cameraPosition == .front ? .leftMirrored : .right
-    case .landscapeLeft:
-      return cameraPosition == .front ? .downMirrored : .up
-    case .portraitUpsideDown:
-      return cameraPosition == .front ? .rightMirrored : .left
-    case .landscapeRight:
-      return cameraPosition == .front ? .upMirrored : .down
-    case .faceDown, .faceUp, .unknown:
-      return .up
-    @unknown default:
-      return imageOrientation(deviceOrientation: defaultOrientation, defaultOrientation: .portrait)
+    func imageOrientation(
+        deviceOrientation: UIDeviceOrientation,
+        defaultOrientation: UIDeviceOrientation
+    ) -> UIImage.Orientation {
+        switch deviceOrientation {
+        case .portrait:
+            return cameraPosition == .front ? .leftMirrored : .right
+        case .landscapeLeft:
+            return cameraPosition == .front ? .downMirrored : .up
+        case .portraitUpsideDown:
+            return cameraPosition == .front ? .rightMirrored : .left
+        case .landscapeRight:
+            return cameraPosition == .front ? .upMirrored : .down
+        case .faceDown, .faceUp, .unknown:
+            return .up
+        @unknown default:
+            return imageOrientation(deviceOrientation: defaultOrientation, defaultOrientation: .portrait)
+        }
     }
-  }
 }
 
 enum Zoom: Float {
