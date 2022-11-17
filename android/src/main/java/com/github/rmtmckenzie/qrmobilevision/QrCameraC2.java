@@ -286,6 +286,21 @@ class QrCameraC2 implements QrCamera {
         }
     }
 
+    private void initAutoFocus() {
+        Integer afMode = afMode(cameraCharacteristics);
+
+        if (afMode != null) {
+            previewBuilder.set(CaptureRequest.CONTROL_AF_MODE, afMode);
+            Log.i(TAG, "Setting af mode to: " + afMode);
+            if (afMode == CONTROL_AF_MODE_AUTO) {
+                previewBuilder.set(
+                    CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+            } else {
+                previewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
+            }
+        }
+    }
+
 
     private void startCamera() {
         List<Surface> list = new ArrayList<>();
@@ -323,16 +338,6 @@ class QrCameraC2 implements QrCamera {
             previewBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
             cameraZoom.setZoom(previewBuilder, zoomFactor);
 
-            if (afMode != null) {
-                previewBuilder.set(CaptureRequest.CONTROL_AF_MODE, afMode);
-                Log.i(TAG, "Setting af mode to: " + afMode);
-                if (afMode == CONTROL_AF_MODE_AUTO) {
-                    previewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
-                } else {
-                    previewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
-                }
-            }
-
         } catch (java.lang.Exception e) {
             e.printStackTrace();
             return;
@@ -369,6 +374,9 @@ class QrCameraC2 implements QrCamera {
 
         try {
             previewSession.setRepeatingRequest(previewBuilder.build(), listener, null);
+
+            initAutoFocus();
+
         } catch (java.lang.Exception e) {
             e.printStackTrace();
         }

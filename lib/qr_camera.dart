@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
@@ -298,8 +299,7 @@ class _PreviewState extends State<Preview> {
         break;
     }
 
-    print(
-        "Native orientation: $nativeRotation, sensorOrientation: $sensorOrientation");
+    log("Native orientation: $nativeRotation, sensorOrientation: $sensorOrientation");
 
     int rotationCompensation =
         ((nativeRotation - sensorOrientation! + 450) % 360) ~/ 90;
