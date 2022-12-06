@@ -284,12 +284,13 @@ extension QrReader: AVCaptureVideoDataOutputSampleBufferDelegate {
                     }
                     return
                 }
-                
+                var barcodes = [[String: Any]]()
+
                 guard let features = features, !features.isEmpty else {
+                    self.qrCallback(barcodes)
                     return
                 }
-                var barcodes = [[String: Any]]()
-                
+                 
                 for feature in features {
                     var barcodeMap = [String: Any]()
                     
