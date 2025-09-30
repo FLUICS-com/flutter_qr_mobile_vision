@@ -1,3 +1,6 @@
+## [1.0.1+3]
+* Update Android plugin registration to Flutter v2 embedding only
+
 ## [1.0.1+1]
 * Remove log statement from image close
 
