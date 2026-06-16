@@ -166,7 +166,21 @@ class QrDetector2 {
         }
     }
 
-    private static class QrTaskV2 extends AsyncTask<Void, Void, SparseArray<Barcode>> {
+    private static class DetectionResult {
+        final SparseArray<Barcode> detectedItems;
+        final int imageWidth;
+        final int imageHeight;
+        final int rotation;
+
+        DetectionResult(SparseArray<Barcode> detectedItems, int imageWidth, int imageHeight, int rotation) {
+            this.detectedItems = detectedItems;
+            this.imageWidth = imageWidth;
+            this.imageHeight = imageHeight;
+            this.rotation = rotation;
+        }
+    }
+
+    private static class QrTaskV2 extends AsyncTask<Void, Void, DetectionResult> {
 
         private final WeakReference<QrDetector2> qrDetector;
 
@@ -175,7 +189,7 @@ class QrDetector2 {
         }
 
         @Override
-        protected SparseArray<Barcode> doInBackground(Void... voids) {
+        protected DetectionResult doInBackground(Void... voids) {
 
             QrDetector2 qrDetector = this.qrDetector.get();
             if (qrDetector == null) return null;
@@ -206,16 +220,18 @@ class QrDetector2 {
                 }
             }
 
+            int rotation = qrDetector.orientation;
             Frame.Builder builder = new Frame.Builder().setImageData(imageBuffer, width, height, ImageFormat.NV21);
-            builder.setRotation(qrDetector.orientation);
-            return qrDetector.detector.detect(builder.build());
+            builder.setRotation(rotation);
+            return new DetectionResult(qrDetector.detector.detect(builder.build()), width, height, rotation);
         }
 
         @Override
-        protected void onPostExecute(SparseArray<Barcode> detectedItems) {
+        protected void onPostExecute(DetectionResult result) {
             QrDetector2 qrDetector = this.qrDetector.get();
             if (qrDetector == null) return;
 
+            SparseArray<Barcode> detectedItems = result == null ? null : result.detectedItems;
             if (detectedItems != null) {
                 List<Map<String, Object>> barcodeList = new ArrayList<>();
 
@@ -230,6 +246,9 @@ class QrDetector2 {
                         barcodeMap.put("top", (double) barcode.getBoundingBox().top);
                         barcodeMap.put("width", (double) barcode.getBoundingBox().width());
                         barcodeMap.put("height", (double) barcode.getBoundingBox().height());
+                        barcodeMap.put("frameWidth", result.imageWidth);
+                        barcodeMap.put("frameHeight", result.imageHeight);
+                        barcodeMap.put("frameRotation", result.rotation);
                     }
 
                     if (barcode.cornerPoints != null) {

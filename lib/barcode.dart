@@ -4,25 +4,29 @@ class Barcode {
   final String? rawValue;
   final List<Offset>? _cornerPoints;
   final Rect? boundingBox;
+  final num? frameWidth;
+  final num? frameHeight;
+  final num? frameRotation;
 
-  Barcode(Map<dynamic, dynamic> _data)
-      : boundingBox = _data['left'] != null
+  Barcode(Map<dynamic, dynamic> data)
+      : boundingBox = data['left'] != null
             ? Rect.fromLTWH(
-                _data['left'],
-                _data['top'],
-                _data['width'],
-                _data['height'],
+                data['left'],
+                data['top'],
+                data['width'],
+                data['height'],
               )
             : null,
-        rawValue = _data['rawValue'],
-        _cornerPoints = _data['points'] == null
-            ? null
-            : _data['points']
-                .map<Offset>((dynamic item) => Offset(
-                      item[0],
-                      item[1],
-                    ))
-                .toList();
+        rawValue = data['rawValue'],
+        frameWidth = data['frameWidth'],
+        frameHeight = data['frameHeight'],
+        frameRotation = data['frameRotation'],
+        _cornerPoints = data['points']?.map<Offset>((dynamic item) {
+          return Offset(
+            item[0],
+            item[1],
+          );
+        }).toList();
 
   List<Offset> get cornerPoints => List<Offset>.from(_cornerPoints!);
 }
