@@ -1,4 +1,4 @@
-
+import Dispatch
 
 final class Atomic<T> {
   

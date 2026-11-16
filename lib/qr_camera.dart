@@ -32,6 +32,7 @@ class QrCamera extends StatefulWidget {
     ErrorCallback? onError,
     this.formats,
     this.customPainter,
+    this.customPainterBuilder,
     bool? isFlipCameraPreview,
   })  : notStartedBuilder = notStartedBuilder ?? _defaultNotStartedBuilder,
         offscreenBuilder =
@@ -49,6 +50,9 @@ class QrCamera extends StatefulWidget {
   final ErrorCallback onError;
   final List<BarcodeFormats>? formats;
   final CustomPainter? customPainter;
+  /// Builds a painter with the visible part of the texture in painter coordinates.
+  /// When provided, this takes precedence over [customPainter].
+  final CustomPainter? Function(Rect visibleTextureRect)? customPainterBuilder;
   final CameraLensDirection? cameraLensDirection;
   final CameraZoomFactor? cameraZoomFactor;
   final bool isFlipCameraPreview;
@@ -198,6 +202,7 @@ class QrCameraState extends State<QrCamera> with WidgetsBindingObserver {
                   targetHeight: constraints.maxHeight,
                   fit: widget.fit,
                   customPainter: widget.customPainter,
+                  customPainterBuilder: widget.customPainterBuilder,
                   isFlipCameraPreview: widget.isFlipCameraPreview,
                 ),
               );
@@ -233,6 +238,7 @@ class Preview extends StatefulWidget {
   final double targetWidth, targetHeight;
   final BoxFit fit;
   final CustomPainter? customPainter;
+  final CustomPainter? Function(Rect visibleTextureRect)? customPainterBuilder;
   final bool? isFlipCameraPreview;
   final PreviewDetails previewDetails;
 
@@ -243,6 +249,7 @@ class Preview extends StatefulWidget {
     required this.fit,
     this.isFlipCameraPreview,
     this.customPainter,
+    this.customPainterBuilder,
   });
 
   @override
@@ -304,8 +311,15 @@ class _PreviewState extends State<Preview> {
     int rotationCompensation =
         ((nativeRotation - sensorOrientation! + 450) % 360) ~/ 90;
 
-    double frameHeight = width;
-    double frameWidth = height;
+    final textureSize = Size(height, width);
+    final viewport = rotationCompensation.isOdd
+        ? Size(widget.targetHeight, widget.targetWidth)
+        : Size(widget.targetWidth, widget.targetHeight);
+    final visibleSize = applyBoxFit(widget.fit, textureSize, viewport).source;
+    final visibleTextureRect = Alignment.center.inscribe(
+      visibleSize,
+      Offset.zero & textureSize,
+    );
 
     return ClipRect(
       child: FittedBox(
@@ -314,9 +328,11 @@ class _PreviewState extends State<Preview> {
           quarterTurns: rotationCompensation,
           child: CameraPreview(
             textureId: textureId,
-            customPainter: widget.customPainter,
-            width: frameWidth,
-            height: frameHeight,
+            customPainter: widget.customPainterBuilder == null
+                ? widget.customPainter
+                : widget.customPainterBuilder!(visibleTextureRect),
+            width: textureSize.width,
+            height: textureSize.height,
             isFlipCameraPreview: widget.isFlipCameraPreview,
           ),
         ),

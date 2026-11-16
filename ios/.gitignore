@@ -9,6 +9,7 @@ profile
 
 DerivedData/
 build/
+.build/
 
 *.pbxuser
 *.mode1v3

@@ -1,26 +1,18 @@
 Pod::Spec.new do |s|
   s.name             = 'qr_mobile_vision'
   s.version          = '0.0.2'
-  s.summary          = 'Plugin for reading QR codes using Firebase&#x27;s Mobile Vision API.'
+  s.summary          = 'Plugin for reading QR codes and barcodes.'
   s.description      = <<-DESC
-Plugin for reading QR codes using Google&#x27;s Mobile Vision API.
+Plugin for reading QR codes and barcodes using Apple Vision.
                        DESC
   s.homepage         = 'https://github.com/rmtmckenzie/flutter_qr_mobile_vision'
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Morgan McKenzie' => 'rmtmckenzie@gmail.com' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*'
-  s.public_header_files = 'Classes/**/*.h'
+  s.source_files = 'qr_mobile_vision/Sources/qr_mobile_vision/**/*.swift'
   s.dependency 'Flutter'
   s.platform = :ios, '15.5'
-
-  # Flutter.framework does not contain a i386 slice. Only x86_64 simulators are supported.
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'VALID_ARCHS[sdk=iphonesimulator*]' => 'x86_64' }
-  # Mobile vision doesn't support 32 bit ios
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'VALID_ARCHS[sdk=iphoneos*]' => 'arm64' }
   s.swift_version = '5.0'
 
-  s.dependency 'GoogleMLKit/BarcodeScanning', '~> 7.0.0'
-  
   s.static_framework = true
 end
